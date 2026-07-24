@@ -1,0 +1,42 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze Java
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java
+          build-mode: manual
+
+      # Tests skipped on purpose: CodeQL analyzes production bytecode; the full
+      # suite (incl. Testcontainers) already runs in ci.yml.
+      - name: Build
+        run: mvn -B -ntp -DskipTests -Dspotless.check.skip=true -Dcheckstyle.skip=true package
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3

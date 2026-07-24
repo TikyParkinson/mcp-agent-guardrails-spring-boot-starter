@@ -1,0 +1,70 @@
+/*
+ * Copyright 2026 TikyParkinson
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.tikyparkinson.mcpguardrails.injectionguard.infrastructure;
+
+import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.BuiltInInjectionRules;
+import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.InjectionRule;
+import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.InjectionSeverity;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+
+/**
+ * Injection-guard configuration, bound to the {@code mcp.guardrails.injection-guard} prefix.
+ *
+ * @param enabled whether the injection guardrail is registered. Default: {@code true}.
+ * @param builtInRulesEnabled whether the built-in rule set is included. Default: {@code true}.
+ * @param customRules additional rules appended after the built-in ones. Default: empty.
+ */
+@ConfigurationProperties(prefix = "mcp.guardrails.injection-guard")
+public record GuardrailsInjectionGuardProperties(
+    @DefaultValue("true") boolean enabled,
+    @DefaultValue("true") boolean builtInRulesEnabled,
+    List<CustomRule> customRules) {
+
+  @ConstructorBinding
+  public GuardrailsInjectionGuardProperties {
+    customRules = customRules == null ? List.of() : List.copyOf(customRules);
+  }
+
+  /** Default configuration: enabled, built-in rules on, no custom rules. */
+  public GuardrailsInjectionGuardProperties() {
+    this(true, true, List.of());
+  }
+
+  /** Builds the rule list this configuration describes (built-ins first, then customs). */
+  public List<InjectionRule> toRules() {
+    List<InjectionRule> rules = new ArrayList<>();
+    if (builtInRulesEnabled) {
+      rules.addAll(BuiltInInjectionRules.defaults());
+    }
+    for (CustomRule custom : customRules) {
+      rules.add(InjectionRule.of(custom.id(), custom.pattern(), custom.severity()));
+    }
+    return List.copyOf(rules);
+  }
+
+  /**
+   * One configured custom rule.
+   *
+   * @param id stable rule id, used in audit trails.
+   * @param pattern regex, compiled case-insensitive.
+   * @param severity MALICIOUS denies, SUSPICIOUS escalates.
+   */
+  public record CustomRule(String id, String pattern, InjectionSeverity severity) {}
+}

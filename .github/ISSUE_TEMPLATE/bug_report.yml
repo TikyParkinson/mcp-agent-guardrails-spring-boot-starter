@@ -1,0 +1,40 @@
+name: Bug report
+description: Something is broken
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Project version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: JVM version, Spring Boot version, MCP SDK version, OS
+      placeholder: "JDK 25, Spring Boot 4.1.0, MCP SDK 2.0.0, macOS 15"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Ideally a minimal failing test case. Use ``` fences for code and stack traces.
+    validations:
+      required: true
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security check
+      options:
+        - label: This is NOT a security vulnerability (those go through SECURITY.md, never public issues)
+          required: true

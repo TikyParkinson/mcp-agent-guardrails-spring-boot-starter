@@ -1,0 +1,5 @@
+io.github.tikyparkinson.mcpguardrails.starter.infrastructure.GuardrailsCoreAutoConfiguration
+io.github.tikyparkinson.mcpguardrails.starter.infrastructure.GuardrailsAuditAutoConfiguration
+io.github.tikyparkinson.mcpguardrails.starter.infrastructure.GuardrailsAuthzAutoConfiguration
+io.github.tikyparkinson.mcpguardrails.starter.infrastructure.GuardrailsInjectionGuardAutoConfiguration
+io.github.tikyparkinson.mcpguardrails.starter.infrastructure.GuardrailsRatelimitAutoConfiguration

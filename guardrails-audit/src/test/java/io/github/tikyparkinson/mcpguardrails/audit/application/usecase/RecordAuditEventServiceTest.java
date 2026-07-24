@@ -46,7 +46,7 @@ class RecordAuditEventServiceTest {
   @Test
   void shouldCompleteDraftAndPersistWhenRecording() {
     // given / when
-    AuditEvent recorded = service.record(DRAFT);
+    AuditEvent recorded = service.publish(DRAFT);
 
     // then
     AuditEvent expected =
@@ -62,13 +62,13 @@ class RecordAuditEventServiceTest {
     doThrow(new IllegalStateException("store down")).when(store).append(any());
 
     // when / then
-    assertThrows(IllegalStateException.class, () -> service.record(DRAFT));
+    assertThrows(IllegalStateException.class, () -> service.publish(DRAFT));
   }
 
   @Test
   void shouldRejectNullDraftWhenRecording() {
     // given / when / then
-    assertThrows(NullPointerException.class, () -> service.record(null));
+    assertThrows(NullPointerException.class, () -> service.publish(null));
   }
 
   @Test

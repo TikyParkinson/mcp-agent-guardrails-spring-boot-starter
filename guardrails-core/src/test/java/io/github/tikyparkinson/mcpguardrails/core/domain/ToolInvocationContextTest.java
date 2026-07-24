@@ -41,7 +41,8 @@ class ToolInvocationContextTest {
 
     // then
     assertEquals("hello", context.arguments().get("q"));
-    assertThrows(UnsupportedOperationException.class, () -> context.arguments().put("x", "y"));
+    Map<String, Object> exposed = context.arguments();
+    assertThrows(UnsupportedOperationException.class, () -> exposed.put("x", "y"));
   }
 
   @Test

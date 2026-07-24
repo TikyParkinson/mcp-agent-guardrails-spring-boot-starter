@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
  */
 public final class InjectionGuardrail implements Guardrail {
 
-  public static final String NAME = "injection-guard";
+  public static final String GUARDRAIL_NAME = "injection-guard";
 
   private final ScanToolArgumentsUseCase scanArguments;
   private final RecordAuditEventUseCase auditBus;
@@ -51,7 +51,7 @@ public final class InjectionGuardrail implements Guardrail {
 
   @Override
   public String name() {
-    return NAME;
+    return GUARDRAIL_NAME;
   }
 
   @Override
@@ -81,9 +81,9 @@ public final class InjectionGuardrail implements Guardrail {
         severity == InjectionSeverity.MALICIOUS
             ? AuditEventType.DECISION_DENY
             : AuditEventType.DECISION_ESCALATE;
-    auditBus.record(
+    auditBus.publish(
         new NewAuditEvent(
-            context.agentId().value(), context.toolName().value(), NAME, type, detail));
+            context.agentId().value(), context.toolName().value(), GUARDRAIL_NAME, type, detail));
   }
 
   private static String describeFindings(ScanResult result) {

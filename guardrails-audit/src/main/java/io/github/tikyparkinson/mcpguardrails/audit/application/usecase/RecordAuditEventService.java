@@ -41,7 +41,7 @@ public final class RecordAuditEventService implements RecordAuditEventUseCase {
   }
 
   @Override
-  public AuditEvent record(NewAuditEvent draft) {
+  public AuditEvent publish(NewAuditEvent draft) {
     Objects.requireNonNull(draft, "draft");
     AuditEvent event =
         new AuditEvent(

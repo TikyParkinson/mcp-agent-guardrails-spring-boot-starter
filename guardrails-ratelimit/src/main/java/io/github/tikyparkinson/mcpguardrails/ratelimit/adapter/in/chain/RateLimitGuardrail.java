@@ -34,7 +34,7 @@ import java.util.Objects;
  */
 public final class RateLimitGuardrail implements Guardrail {
 
-  public static final String NAME = "ratelimit";
+  public static final String GUARDRAIL_NAME = "ratelimit";
 
   private final CheckRateLimitUseCase checkRateLimit;
   private final RecordAuditEventUseCase auditBus;
@@ -47,7 +47,7 @@ public final class RateLimitGuardrail implements Guardrail {
 
   @Override
   public String name() {
-    return NAME;
+    return GUARDRAIL_NAME;
   }
 
   @Override
@@ -78,7 +78,7 @@ public final class RateLimitGuardrail implements Guardrail {
     String detail =
         "count=%d limit=%d window=%s"
             .formatted(status.count(), status.policy().maxInvocations(), status.policy().window());
-    auditBus.record(
-        new NewAuditEvent(agentId, toolName, NAME, AuditEventType.DECISION_DENY, detail));
+    auditBus.publish(
+        new NewAuditEvent(agentId, toolName, GUARDRAIL_NAME, AuditEventType.DECISION_DENY, detail));
   }
 }

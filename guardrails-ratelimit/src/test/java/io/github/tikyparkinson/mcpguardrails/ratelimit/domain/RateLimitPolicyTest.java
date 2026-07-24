@@ -63,12 +63,14 @@ class RateLimitPolicyTest {
 
   @Test
   void shouldRejectInvalidValuesWhenConstructed() {
-    // given / when / then
-    assertThrows(
-        IllegalArgumentException.class, () -> new RateLimitPolicy(0, Duration.ofMinutes(1)));
+    // given
+    Duration oneMinute = Duration.ofMinutes(1);
+    Duration negative = Duration.ofSeconds(-5);
+
+    // when / then
+    assertThrows(IllegalArgumentException.class, () -> new RateLimitPolicy(0, oneMinute));
     assertThrows(IllegalArgumentException.class, () -> new RateLimitPolicy(1, Duration.ZERO));
-    assertThrows(
-        IllegalArgumentException.class, () -> new RateLimitPolicy(1, Duration.ofSeconds(-5)));
+    assertThrows(IllegalArgumentException.class, () -> new RateLimitPolicy(1, negative));
     assertThrows(NullPointerException.class, () -> new RateLimitPolicy(1, null));
     assertThrows(IllegalArgumentException.class, () -> new RateLimitStatus(0, POLICY));
     assertThrows(NullPointerException.class, () -> new RateLimitStatus(1, null));

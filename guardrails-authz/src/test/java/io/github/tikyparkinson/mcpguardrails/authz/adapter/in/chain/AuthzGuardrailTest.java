@@ -62,7 +62,7 @@ class AuthzGuardrailTest {
     // when / then
     assertEquals(new Allow(), guardrail.evaluate(CONTEXT));
     verify(auditBus)
-        .record(
+        .publish(
             new NewAuditEvent(
                 "agent-1", "search", "authz", AuditEventType.DECISION_ALLOW, "rule[1]"));
   }
@@ -78,7 +78,7 @@ class AuthzGuardrailTest {
         new Deny("agent 'agent-1' is not allowed to call tool 'search' (rule[0])"),
         guardrail.evaluate(CONTEXT));
     verify(auditBus)
-        .record(
+        .publish(
             new NewAuditEvent(
                 "agent-1", "search", "authz", AuditEventType.DECISION_DENY, "rule[0]"));
   }
@@ -94,7 +94,7 @@ class AuthzGuardrailTest {
         new Escalate("agent 'agent-1' requires approval for tool 'search' (default)"),
         guardrail.evaluate(CONTEXT));
     verify(auditBus)
-        .record(
+        .publish(
             new NewAuditEvent(
                 "agent-1", "search", "authz", AuditEventType.DECISION_ESCALATE, "default"));
   }
@@ -104,7 +104,7 @@ class AuthzGuardrailTest {
     // given: fail-closed — an unauditable decision must not pass silently
     when(authorize.authorize("agent-1", "search"))
         .thenReturn(new PolicyDecision(PermissionEffect.ALLOW, "default"));
-    when(auditBus.record(any())).thenThrow(new IllegalStateException("audit store down"));
+    when(auditBus.publish(any())).thenThrow(new IllegalStateException("audit store down"));
 
     // when / then
     assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));

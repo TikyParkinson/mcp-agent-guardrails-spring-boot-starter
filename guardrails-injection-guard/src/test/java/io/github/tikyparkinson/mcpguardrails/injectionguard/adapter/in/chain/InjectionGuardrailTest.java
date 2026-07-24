@@ -82,7 +82,7 @@ class InjectionGuardrailTest {
                 + "(do-anything-now@q, ignore-previous-instructions@q)"),
         guardrail.evaluate(CONTEXT));
     verify(auditBus)
-        .record(
+        .publish(
             new NewAuditEvent(
                 "agent-1",
                 "search",
@@ -104,7 +104,7 @@ class InjectionGuardrailTest {
         new Escalate("suspicious content detected in tool arguments (base64-blob@q)"),
         guardrail.evaluate(CONTEXT));
     verify(auditBus)
-        .record(
+        .publish(
             new NewAuditEvent(
                 "agent-1",
                 "search",
@@ -119,7 +119,7 @@ class InjectionGuardrailTest {
     when(scan.scan(Map.of("q", "text")))
         .thenReturn(
             new ScanResult(List.of(new ScanResult.Finding("x", InjectionSeverity.MALICIOUS, "q"))));
-    when(auditBus.record(any())).thenThrow(new IllegalStateException("audit down"));
+    when(auditBus.publish(any())).thenThrow(new IllegalStateException("audit down"));
 
     // when / then
     assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));

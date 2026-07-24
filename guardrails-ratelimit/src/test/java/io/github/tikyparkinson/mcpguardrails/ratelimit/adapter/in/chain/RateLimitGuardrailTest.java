@@ -71,7 +71,7 @@ class RateLimitGuardrailTest {
         new Deny("rate limit exceeded for agent 'agent-1' on tool 'search' (6/5 in PT1M)"),
         guardrail.evaluate(CONTEXT));
     verify(auditBus)
-        .record(
+        .publish(
             new NewAuditEvent(
                 "agent-1",
                 "search",
@@ -84,7 +84,7 @@ class RateLimitGuardrailTest {
   void shouldPropagateFailureWhenAuditBusThrows() {
     // given: an unauditable denial must not pass silently (fail-closed in core)
     when(checkRateLimit.check("agent-1", "search", NOW)).thenReturn(new RateLimitStatus(6, POLICY));
-    when(auditBus.record(any())).thenThrow(new IllegalStateException("audit down"));
+    when(auditBus.publish(any())).thenThrow(new IllegalStateException("audit down"));
 
     // when / then
     assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));

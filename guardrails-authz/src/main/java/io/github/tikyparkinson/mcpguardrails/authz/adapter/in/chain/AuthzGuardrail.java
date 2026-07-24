@@ -35,7 +35,7 @@ import java.util.Objects;
  */
 public final class AuthzGuardrail implements Guardrail {
 
-  public static final String NAME = "authz";
+  public static final String GUARDRAIL_NAME = "authz";
 
   private final AuthorizeToolInvocationUseCase authorize;
   private final RecordAuditEventUseCase auditBus;
@@ -48,7 +48,7 @@ public final class AuthzGuardrail implements Guardrail {
 
   @Override
   public String name() {
-    return NAME;
+    return GUARDRAIL_NAME;
   }
 
   @Override
@@ -67,7 +67,7 @@ public final class AuthzGuardrail implements Guardrail {
           case DENY -> AuditEventType.DECISION_DENY;
           case ESCALATE -> AuditEventType.DECISION_ESCALATE;
         };
-    auditBus.record(new NewAuditEvent(agentId, toolName, NAME, type, decision.source()));
+    auditBus.publish(new NewAuditEvent(agentId, toolName, GUARDRAIL_NAME, type, decision.source()));
   }
 
   private static GuardrailDecision toGuardrailDecision(

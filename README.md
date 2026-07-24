@@ -1,6 +1,6 @@
 # MCP Agent Guardrails
 
-[![CI](https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/actions/workflows/ci.yml)
+[![CI](https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/actions/workflows/codeql.yml/badge.svg)](https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/actions/workflows/codeql.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 

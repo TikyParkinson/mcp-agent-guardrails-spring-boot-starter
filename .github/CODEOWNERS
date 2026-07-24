@@ -1,0 +1,4 @@
+# Every path requires review from the repository owner.
+# Used by the rulesets ("require review from Code Owners") so that
+# only @TikyParkinson can approve pull requests for merging.
+* @TikyParkinson

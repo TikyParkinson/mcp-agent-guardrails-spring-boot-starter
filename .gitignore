@@ -20,7 +20,7 @@ replay_pid*
 *.iml
 *.ipr
 *.iws
-out/
+/out/
 
 # --- Eclipse ---
 .classpath

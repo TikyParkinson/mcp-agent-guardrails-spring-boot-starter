@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-24
+
 ### Added
 
 - `guardrails-core`: shared model (`ToolInvocationContext`, `GuardrailDecision` sealed
@@ -44,4 +46,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Testcontainers 2.0.5, PostgreSQL driver 42.7.11 (via Boot BOM). All versions verified as
   latest GA on Maven Central at pin time (ARCHITECTURE.md §2).
 
-[Unreleased]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/commits/main
+[Unreleased]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/releases/tag/v0.1.0

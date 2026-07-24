@@ -40,7 +40,7 @@ Add the starter — that is all it takes:
 <dependency>
   <groupId>io.github.tikyparkinson</groupId>
   <artifactId>mcp-guardrails-spring-boot-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 
@@ -64,8 +64,6 @@ mcp:
 Decision semantics across the chain: `Deny > Escalate > Allow`, all guardrails always evaluated,
 full decision trace kept per invocation. Each module README documents its properties and its
 pluggable port.
-
-> Not yet published to Maven Central — install locally with `mvn install` in the meantime.
 
 ## Getting Help
 

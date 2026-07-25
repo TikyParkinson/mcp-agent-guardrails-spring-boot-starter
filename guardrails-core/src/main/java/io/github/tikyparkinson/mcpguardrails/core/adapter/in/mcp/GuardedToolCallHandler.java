@@ -64,7 +64,7 @@ public final class GuardedToolCallHandler
       McpSyncServerExchange exchange, McpSchema.CallToolRequest request) {
     ToolInvocationContext context = toContext(exchange, request);
     return switch (useCase.evaluate(context).finalDecision()) {
-      case Allow ignored -> delegate.apply(exchange, request);
+      case Allow _ -> delegate.apply(exchange, request);
       case Deny(String reason) -> errorResult("Tool call denied by guardrails: " + reason);
       case Escalate(String reason) ->
           errorResult("Tool call requires approval (escalated by guardrails): " + reason);

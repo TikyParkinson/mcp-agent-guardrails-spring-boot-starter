@@ -17,6 +17,7 @@ package io.github.tikyparkinson.mcpguardrails.core.domain;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Pure combination rule for guardrail decisions.
@@ -31,22 +32,16 @@ public final class DecisionCombiner {
   /** Combines the given evaluations into the final decision of the chain. */
   public static GuardrailDecision combine(List<GuardrailEvaluation> evaluations) {
     Objects.requireNonNull(evaluations, "evaluations");
-    GuardrailDecision firstEscalate = null;
-    for (GuardrailEvaluation evaluation : evaluations) {
-      switch (evaluation.decision()) {
-        case Deny deny -> {
-          return deny;
-        }
-        case Escalate escalate -> {
-          if (firstEscalate == null) {
-            firstEscalate = escalate;
-          }
-        }
-        case Allow ignored -> {
-          // no effect on severity
-        }
-      }
-    }
-    return firstEscalate != null ? firstEscalate : new Allow();
+    Optional<GuardrailDecision> firstDeny = firstOfType(evaluations, Deny.class);
+    return firstDeny.orElseGet(
+        () -> firstOfType(evaluations, Escalate.class).orElseGet(Allow::new));
+  }
+
+  private static Optional<GuardrailDecision> firstOfType(
+      List<GuardrailEvaluation> evaluations, Class<? extends GuardrailDecision> type) {
+    return evaluations.stream()
+        .map(GuardrailEvaluation::decision)
+        .filter(type::isInstance)
+        .findFirst();
   }
 }

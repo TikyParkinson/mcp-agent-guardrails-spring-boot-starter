@@ -40,11 +40,14 @@ class ChainVerdictTest {
 
   @Test
   void shouldRejectNullsWhenConstructed() {
-    // given / when / then
+    // given
+    Allow allow = new Allow();
+
+    // when / then
     assertThrows(NullPointerException.class, () -> new ChainVerdict(null, List.of()));
-    assertThrows(NullPointerException.class, () -> new ChainVerdict(new Allow(), null));
+    assertThrows(NullPointerException.class, () -> new ChainVerdict(allow, null));
     assertThrows(NullPointerException.class, () -> new GuardrailEvaluation("a", null));
-    assertThrows(NullPointerException.class, () -> new GuardrailEvaluation(null, new Allow()));
-    assertThrows(IllegalArgumentException.class, () -> new GuardrailEvaluation(" ", new Allow()));
+    assertThrows(NullPointerException.class, () -> new GuardrailEvaluation(null, allow));
+    assertThrows(IllegalArgumentException.class, () -> new GuardrailEvaluation(" ", allow));
   }
 }

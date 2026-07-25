@@ -24,5 +24,5 @@ import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 public interface RecordAuditEventUseCase {
 
   /** Completes the draft (eventId, occurredAt) and persists it. Returns the final event. */
-  AuditEvent record(NewAuditEvent draft);
+  AuditEvent publish(NewAuditEvent draft);
 }

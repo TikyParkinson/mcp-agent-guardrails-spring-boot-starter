@@ -72,7 +72,7 @@ Paquete `io.github.tikyparkinson.mcpguardrails.audit.application.port`.
 ```java
 public interface RecordAuditEventUseCase {
   /** Completa el borrador (eventId, occurredAt) y lo persiste. Devuelve el evento final. */
-  AuditEvent record(NewAuditEvent draft);
+  AuditEvent publish(NewAuditEvent draft);
 }
 ```
 
@@ -118,7 +118,7 @@ core: los adapters pueden depender de contratos externos).
 - `evaluate(context)`:
   1. Construye `NewAuditEvent(context.agentId().value(), context.toolName().value(),
      "audit", TOOL_INVOKED, "")`.
-  2. Invoca `RecordAuditEventUseCase.record(...)`.
+  2. Invoca `RecordAuditEventUseCase.publish(...)`.
   3. Devuelve `new Allow()`.
   - Si el store falla, la excepción se propaga y `GuardrailChain` (core) la convierte en
     `Deny` fail-closed. Ver Decisión 1.

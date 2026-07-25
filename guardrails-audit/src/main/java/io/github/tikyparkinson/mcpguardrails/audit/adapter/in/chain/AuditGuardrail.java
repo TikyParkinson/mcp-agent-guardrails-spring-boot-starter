@@ -31,7 +31,7 @@ import java.util.Objects;
  */
 public final class AuditGuardrail implements Guardrail {
 
-  public static final String NAME = "audit";
+  public static final String GUARDRAIL_NAME = "audit";
 
   private final RecordAuditEventUseCase recordAuditEvent;
 
@@ -41,7 +41,7 @@ public final class AuditGuardrail implements Guardrail {
 
   @Override
   public String name() {
-    return NAME;
+    return GUARDRAIL_NAME;
   }
 
   @Override
@@ -51,11 +51,11 @@ public final class AuditGuardrail implements Guardrail {
 
   @Override
   public GuardrailDecision evaluate(ToolInvocationContext context) {
-    recordAuditEvent.record(
+    recordAuditEvent.publish(
         new NewAuditEvent(
             context.agentId().value(),
             context.toolName().value(),
-            NAME,
+            GUARDRAIL_NAME,
             AuditEventType.TOOL_INVOKED,
             ""));
     return new Allow();

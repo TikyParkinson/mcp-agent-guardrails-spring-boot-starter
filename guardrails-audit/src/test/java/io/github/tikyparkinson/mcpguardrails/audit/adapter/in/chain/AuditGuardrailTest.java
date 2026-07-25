@@ -53,7 +53,7 @@ class AuditGuardrailTest {
 
     // then: event carries identity only — never the tool arguments (PII rule)
     verify(bus)
-        .record(new NewAuditEvent("agent-1", "search", "audit", AuditEventType.TOOL_INVOKED, ""));
+        .publish(new NewAuditEvent("agent-1", "search", "audit", AuditEventType.TOOL_INVOKED, ""));
   }
 
   @Test
@@ -72,7 +72,7 @@ class AuditGuardrailTest {
   @Test
   void shouldPropagateFailureWhenBusThrows() {
     // given: core chain converts this into a fail-closed Deny
-    when(bus.record(any())).thenThrow(new IllegalStateException("store down"));
+    when(bus.publish(any())).thenThrow(new IllegalStateException("store down"));
 
     // when / then
     assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));

@@ -5,14 +5,15 @@ on:
     branches: ["**"]
   pull_request:
 
-permissions:
-  contents: read
-  pull-requests: write # coverage comment on PRs
+permissions: {}
 
 jobs:
   verify:
     name: Build & Verify (JDK 25)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # coverage comment on PRs
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:

@@ -4,13 +4,14 @@ on:
   push:
     tags: ["v*.*.*"]
 
-permissions:
-  contents: write # create the GitHub Release for the tag
+permissions: {}
 
 jobs:
   publish:
     name: Publish to Maven Central
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release for the tag
     steps:
       - name: Checkout
         uses: actions/checkout@v4

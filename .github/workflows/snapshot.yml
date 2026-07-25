@@ -8,8 +8,7 @@ on:
   push:
     branches: [develop]
 
-permissions:
-  contents: read
+permissions: {}
 
 # Never run two snapshot deploys at once; newer pushes supersede queued ones.
 concurrency:
@@ -20,6 +19,8 @@ jobs:
   publish-snapshot:
     name: Publish snapshot to Maven Central
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4

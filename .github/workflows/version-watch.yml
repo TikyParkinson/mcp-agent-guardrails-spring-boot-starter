@@ -7,14 +7,15 @@ on:
     - cron: "0 7 * * 1" # Mondays 07:00 UTC
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: write
+permissions: {}
 
 jobs:
   check-updates:
     name: Check for newer GA versions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # open/update version watch issue
     steps:
       - name: Checkout
         uses: actions/checkout@v4

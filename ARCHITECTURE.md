@@ -1,4 +1,4 @@
-# ARCHITECTURE.md — mcp-agent-guardrails-spring-boot-starter
+# ARCHITECTURE.md — mcp-guardrails-spring-boot-starter
 
 Este documento es la **ley del proyecto**. Los 5 agentes (`spec-architect`, `domain-builder`,
 `adapter-builder`, `test-engineer`, `code-reviewer`) deben leerlo antes de producir nada y
@@ -7,15 +7,15 @@ este documento.
 
 ## 1. Identidad del proyecto
 
-| Campo | Valor |
-|---|---|
-| groupId | `io.github.tikyparkinson` |
-| artifactId raíz | `mcp-agent-guardrails-spring-boot-starter` |
-| Repositorio | `https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter` |
-| Build tool | Maven (multi-módulo) |
-| Java | 25 (LTS), `--release 25`, preview features **desactivadas** |
-| Licencia | Apache License 2.0 (header en cabecera de cada `.java`) |
-| Distribución | GitHub (código) + Maven Central (artefactos, vía Central Publisher Portal / OSSRH sucesor) |
+| Campo           | Valor                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| groupId         | `io.github.tikyparkinson`                                                                  |
+| artifactId raíz | `mcp-guardrails-spring-boot-starter`                                                        |
+| Repositorio     | `https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter`                 |
+| Build tool      | Maven (multi-módulo)                                                                        |
+| Java            | 25 (LTS), `--release 25`, preview features **desactivadas**                                |
+| Licencia        | Apache License 2.0 (header en cabecera de cada `.java`)                                    |
+| Distribución    | GitHub (código) + Maven Central (artefactos, vía Central Publisher Portal / OSSRH sucesor) |
 
 ## 2. Regla de oro de versiones: "siempre la última GA"
 
@@ -61,30 +61,58 @@ de ejemplo — no se asume que todo usuario use Postgres.
 ## 5. Módulos Maven
 
 ```
-mcp-agent-guardrails-spring-boot-starter/           (pom, packaging=pom, parent)
-├── guardrails-core/                                (puertos y modelos compartidos entre guardrails)
-├── guardrails-audit/                                (feature 1: auditoría/logging de tool calls)
-├── guardrails-authz/                                (feature 2: autorización agente→tool)
-├── guardrails-injection-guard/                      (feature 3: anti prompt-injection)
-├── guardrails-ratelimit/                            (feature 4: rate limiting por agente/tool)
-└── spring-boot-starter/                             (autoconfiguración que agrega todo, el artefacto que el usuario final importa)
+mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, parent)
+├── guardrails-core/                    ✅ hecho — Guardrail SPI, chain, GuardrailDecision, tool-call interceptor
+├── guardrails-audit/                   ✅ hecho — auditoría/logging de tool calls
+├── guardrails-authz/                   ✅ hecho — autorización agente→tool
+├── guardrails-injection-guard/         ✅ hecho — anti prompt-injection sobre argumentos
+├── guardrails-ratelimit/               ✅ hecho — rate limiting por (agente, tool)
+├── guardrails-tool-integrity/          🚧 nuevo — anti tool-poisoning: hash/baseline de la descripción de cada tool
+├── guardrails-credential-leak-guard/   🚧 nuevo — detecta y redacta secretos/credenciales en argumentos y resultados
+├── guardrails-egress-control/          🚧 nuevo — allowlist de destinos salientes (HTTP, email, mensajería) por tool
+├── guardrails-anomaly-detector/        🚧 nuevo — detecta loops e invocaciones repetidas anómalas, usando el histórico de audit/ratelimit
+├── guardrails-approval-gate/           🚧 nuevo — implementa la ejecución real de una decisión `Escalate`: pausa la acción hasta aprobación humana
+├── guardrails-trifecta-correlator/     🚧 nuevo — correlaciona, a nivel de sesión, si las 3 señales de la "lethal trifecta" están activas a la vez
+└── spring-boot-starter/                ✅ hecho — autoconfiguración que agrega todo
 ```
 
 Cada módulo `guardrails-*` sigue internamente la subdivisión `domain / application / adapter-in
 / adapter-out`. `spring-boot-starter` solo contiene `infrastructure` (autoconfiguración) y
-depende de los módulos anteriores.
+depende de los módulos anteriores. Ninguno importa otro módulo `guardrails-*` como dependencia
+Maven: si un guardrail necesita saber qué decidieron otros (caso de `trifecta-correlator`), lo
+hace leyendo la traza de decisión ya expuesta por `guardrails-core` para la invocación en curso,
+nunca importando el módulo del otro guardrail.
 
 ## 6. Orden de construcción
 
-1. `guardrails-core` (puertos base: `ToolInvocationContext`, `GuardrailDecision`, `GuardrailChain`)
-2. `guardrails-audit` (los demás guardrails registran eventos en el bus de auditoría)
-3. `guardrails-authz`
-4. `guardrails-injection-guard`
-5. `guardrails-ratelimit`
-6. `spring-boot-starter`
+**Hechos (no tocar):** `guardrails-core` → `guardrails-audit` → `guardrails-authz` →
+`guardrails-injection-guard` → `guardrails-ratelimit` → `spring-boot-starter` (v0.1.0 ya en
+Maven Central).
+
+**Pendientes, en este orden:**
+
+7. `guardrails-tool-integrity` — sin dependencia de los nuevos, puede ir primero.
+8. `guardrails-credential-leak-guard` — mismo nivel que `injection-guard` (analiza contenido de
+   tool), sin dependencias nuevas.
+9. `guardrails-egress-control` — sin dependencias nuevas.
+10. `guardrails-anomaly-detector` — depende de datos históricos que ya exponen `guardrails-audit`
+    y `guardrails-ratelimit` (ya hechos), por eso no puede ir antes que ellos aunque estos ya
+    estén construidos.
+11. `guardrails-approval-gate` — implementa qué pasa cuando la chain devuelve `Escalate`; debe
+    existir antes que el correlador porque este lo invoca.
+12. `guardrails-trifecta-correlator` — el más complejo: lee la traza de `authz`,
+    `injection-guard` y `egress-control` para esa invocación/sesión, y si detecta las 3
+    condiciones activas a la vez, fuerza una decisión `Escalate` que resuelve `approval-gate`.
+    Va último porque depende conceptualmente de que 9, 10 y 11 ya existan.
 
 No se empieza un módulo nuevo sin que el anterior haya pasado por los 5 agentes completos
 (spec → domain → adapter → test → review) y `code-reviewer` lo haya aprobado.
+
+**Flujo por rama, módulo a módulo:** cada módulo pendiente se construye en su propia rama
+`feature/<modulo>` creada desde `develop` (ej. `feature/guardrails-tool-integrity`). Los 5
+agentes corren dentro de esa rama. Solo cuando `code-reviewer` aprueba y existe
+`docs/specs/<modulo>-DONE.md`, se abre PR hacia `develop`. No se arranca la siguiente rama hasta
+que el PR anterior esté mergeado.
 
 ## 7. Estándares de código limpio (obligatorios, sin excepción)
 

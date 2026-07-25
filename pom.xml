@@ -40,6 +40,7 @@
     <module>guardrails-authz</module>
     <module>guardrails-injection-guard</module>
     <module>guardrails-ratelimit</module>
+    <module>guardrails-tool-integrity</module>
     <module>spring-boot-starter</module>
   </modules>
 

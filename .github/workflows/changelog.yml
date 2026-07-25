@@ -1,0 +1,221 @@
+name: Changelog
+
+# Consolidates CHANGELOG.md at release time. On every PR from develop to main:
+#   1. Collects the commits main is about to receive (conventional squash titles).
+#   2. Maps each to a Keep-a-Changelog section (feat→Added, fix→Fixed, deps→Dependencies,
+#      refactor/perf→Changed; docs/test/ci/build/chore are skipped).
+#   3. Skips entries already present in CHANGELOG.md (manual edits win).
+#   4. With a CHANGELOG_BOT_TOKEN secret (PAT of a bypass-listed admin): commits the missing
+#      entries under [Unreleased] directly to develop and the check passes.
+#      Without it: posts the ready-to-paste block as a PR comment and FAILS the check —
+#      a release must not merge with an incomplete changelog.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-summary:
+    name: Post release summary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # sticky summary comment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build and upsert summary comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, re, subprocess
+          from collections import defaultdict
+
+          base, head = os.environ["BASE_SHA"], os.environ["HEAD_SHA"]
+          repo, pr = os.environ["REPO"], os.environ["PR_NUMBER"]
+
+          def sh(*args):
+              return subprocess.run(args, capture_output=True, text=True, check=True).stdout
+
+          subjects = sh("git", "log", "--no-merges", "--pretty=%s", f"{base}..{head}").splitlines()
+          pattern = re.compile(
+              r"^(?P<type>feat|fix|deps|test|docs|refactor|perf|build|ci|chore)"
+              r"(?:\((?P<scope>[a-z0-9-]+)\))?(?P<breaking>!)?: (?P<desc>.+)$")
+          labels = {"feat": "✨ Features", "fix": "🐛 Fixes", "deps": "📦 Dependencies",
+                    "refactor": "🔧 Refactoring", "perf": "⚡ Performance", "test": "🧪 Tests",
+                    "docs": "📚 Docs", "build": "🏗️ Build", "ci": "🤖 CI", "chore": "🧹 Chores"}
+          grouped, breaking, other = defaultdict(list), [], []
+          for subject in subjects:
+              match = pattern.match(subject.strip())
+              if not match:
+                  other.append(subject.strip())
+                  continue
+              scope = f"**{match['scope']}**: " if match["scope"] else ""
+              line = f"- {scope}{match['desc'].strip()}"
+              grouped[match["type"]].append(line)
+              if match["breaking"]:
+                  breaking.append(line)
+
+          shortstat = sh("git", "diff", "--shortstat", f"{base}..{head}").strip()
+          modules = sorted({
+              path.split("/")[0]
+              for path in sh("git", "diff", "--name-only", f"{base}..{head}").splitlines()
+              if "/" in path})
+
+          parts = ["<!-- release-summary -->", "## 🚀 Release summary", ""]
+          parts.append(f"**{len(subjects)} commit(s)** · {shortstat}")
+          parts.append("")
+          if breaking:
+              parts += ["### ⚠️ BREAKING CHANGES", *breaking, ""]
+          for kind in ("feat", "fix", "deps", "refactor", "perf", "test", "docs",
+                       "build", "ci", "chore"):
+              if grouped.get(kind):
+                  parts += [f"### {labels[kind]}", *grouped[kind], ""]
+          if other:
+              parts += ["### Other", *[f"- {s}" for s in other], ""]
+          if modules:
+              parts += ["### 📁 Areas touched",
+                        ", ".join(f"`{m}`" for m in modules), ""]
+          parts.append("_Auto-generated on every push to this release PR._")
+          body = "\n".join(parts)
+
+          comments = json.loads(sh("gh", "api", f"repos/{repo}/issues/{pr}/comments",
+                                   "--paginate"))
+          existing = next((c for c in comments
+                           if "<!-- release-summary -->" in (c.get("body") or "")), None)
+          if existing:
+              sh("gh", "api", "-X", "PATCH",
+                 f"repos/{repo}/issues/comments/{existing['id']}", "-f", f"body={body}")
+              print("Summary comment updated.")
+          else:
+              sh("gh", "api", f"repos/{repo}/issues/{pr}/comments", "-f", f"body={body}")
+              print("Summary comment created.")
+          EOF
+
+  changelog:
+    name: Consolidate release changelog
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # push (if any) uses CHANGELOG_BOT_TOKEN, not GITHUB_TOKEN
+      pull-requests: write # fallback comment with the changelog block
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.CHANGELOG_BOT_TOKEN || github.token }}
+
+      - name: Collect commits and update changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HAS_BOT_TOKEN: ${{ secrets.CHANGELOG_BOT_TOKEN != '' }}
+        run: |
+          python3 - <<'EOF'
+          import os, re, subprocess, sys
+
+          def sh(*args, **kw):
+              return subprocess.run(args, capture_output=True, text=True, check=True, **kw).stdout
+
+          subjects = sh("git", "log", "--no-merges", "--pretty=%s",
+                        f"{os.environ['BASE_SHA']}..HEAD").splitlines()
+
+          pattern = re.compile(
+              r"^(?P<type>feat|fix|deps|refactor|perf)"
+              r"(?:\((?P<scope>[a-z0-9-]+)\))?(?P<breaking>!)?: (?P<desc>.+)$")
+          section_by_type = {"feat": "Added", "fix": "Fixed", "deps": "Dependencies",
+                             "refactor": "Changed", "perf": "Changed"}
+
+          changelog = open("CHANGELOG.md").read()
+          new_by_section: dict[str, list[str]] = {}
+          for subject in subjects:
+              match = pattern.match(subject.strip())
+              if not match:
+                  continue  # non-relevant type or non-conventional (e.g. bootstrap commits)
+              # dedup: by PR number when the squash title carries one, else by description
+              pr_ref = re.search(r"\(#\d+\)\s*$", subject)
+              probe = pr_ref.group(0).strip() if pr_ref else match["desc"].strip()
+              if probe in changelog:
+                  continue
+              scope = f"`{match['scope']}`: " if match["scope"] else ""
+              breaking = "**BREAKING** " if match["breaking"] else ""
+              entry = f"- {breaking}{scope}{match['desc'].strip()}"
+              new_by_section.setdefault(section_by_type[match["type"]], []).append(entry)
+
+          if not new_by_section:
+              print("CHANGELOG.md already covers every release commit. Done.")
+              sys.exit(0)
+
+          lines = changelog.splitlines(keepends=True)
+          unreleased = next(
+              (i for i, l in enumerate(lines) if l.startswith("## [Unreleased]")), None)
+          if unreleased is None:
+              print("::error::CHANGELOG.md has no '## [Unreleased]' section")
+              sys.exit(1)
+
+          for section in ("Added", "Changed", "Fixed", "Dependencies"):
+              entries = new_by_section.get(section)
+              if not entries:
+                  continue
+              block_end = next(
+                  (i for i in range(unreleased + 1, len(lines)) if lines[i].startswith("## [")),
+                  len(lines))
+              header = f"### {section}\n"
+              insert_at = None
+              for i in range(unreleased + 1, block_end):
+                  if lines[i] == header:
+                      insert_at = i + 1
+                      while insert_at < block_end and lines[insert_at].strip() != "" \
+                              and not lines[insert_at].startswith("#"):
+                          insert_at += 1
+                      break
+              payload = [e + "\n" for e in entries]
+              if insert_at is None:
+                  lines[unreleased + 1:unreleased + 1] = ["\n", header] + payload
+              else:
+                  lines[insert_at:insert_at] = payload
+
+          block = "".join(
+              f"### {s}\n" + "\n".join(new_by_section[s]) + "\n\n"
+              for s in ("Added", "Changed", "Fixed", "Dependencies") if s in new_by_section)
+          total = sum(len(v) for v in new_by_section.values())
+
+          if os.environ["HAS_BOT_TOKEN"] != "true":
+              body = ("### ❌ Changelog incomplete for this release\n\n"
+                      f"{total} commit(s) in this release are missing from CHANGELOG.md. "
+                      "Paste this under `## [Unreleased]` (then re-run the check), or configure "
+                      "a `CHANGELOG_BOT_TOKEN` secret to automate it:\n\n"
+                      f"```markdown\n{block}```")
+              subprocess.run(["gh", "pr", "comment", os.environ["PR_NUMBER"], "--body", body],
+                             check=True)
+              print("::error::CHANGELOG.md is missing release entries (see PR comment)")
+              sys.exit(1)
+
+          with open("CHANGELOG.md", "w") as fh:
+              fh.writelines(lines)
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(["git", "config", "user.email",
+                          "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git", "add", "CHANGELOG.md"], check=True)
+          subprocess.run(["git", "commit", "-m",
+                          "docs: consolidate changelog for release"], check=True)
+          subprocess.run(["git", "push", "origin",
+                          f"HEAD:{os.environ['HEAD_REF']}"], check=True)
+          subprocess.run(["gh", "pr", "comment", os.environ["PR_NUMBER"], "--body",
+                          f"📝 Consolidated {total} changelog entrie(s) for this release:\n\n"
+                          f"```markdown\n{block}```"], check=True)
+          EOF

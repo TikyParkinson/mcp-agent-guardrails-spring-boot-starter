@@ -163,11 +163,10 @@ class ToolIntegrityGuardrailTest {
     // never slip through as an implicit Allow
     when(catalog.findByName("search")).thenReturn(Optional.of(DEFINITION));
     when(verify.verify(DEFINITION)).thenReturn(null);
+    ToolIntegrityGuardrail g = guardrail(MismatchAction.DENY, UnknownDefinitionAction.ALLOW);
 
     // when / then
-    assertThrows(
-        NullPointerException.class,
-        () -> guardrail(MismatchAction.DENY, UnknownDefinitionAction.ALLOW).evaluate(CONTEXT));
+    assertThrows(NullPointerException.class, () -> g.evaluate(CONTEXT));
   }
 
   @Test

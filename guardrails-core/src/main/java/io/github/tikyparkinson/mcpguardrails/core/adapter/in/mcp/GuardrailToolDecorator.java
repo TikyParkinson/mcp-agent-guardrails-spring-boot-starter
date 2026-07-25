@@ -16,6 +16,7 @@
 package io.github.tikyparkinson.mcpguardrails.core.adapter.in.mcp;
 
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import java.time.Clock;
 import java.util.Objects;
@@ -35,5 +36,22 @@ public final class GuardrailToolDecorator {
     return new McpServerFeatures.SyncToolSpecification(
         specification.tool(),
         new GuardedToolCallHandler(specification.callHandler(), useCase, agentIdResolver, clock));
+  }
+
+  /**
+   * Returns a copy of the given tool specification with its call handler guarded on both
+   * directions: the invocation by the guardrail chain and the result by the outbound chain.
+   */
+  public static McpServerFeatures.SyncToolSpecification decorate(
+      McpServerFeatures.SyncToolSpecification specification,
+      EvaluateToolInvocationUseCase useCase,
+      EvaluateToolResultUseCase resultUseCase,
+      AgentIdResolver agentIdResolver,
+      Clock clock) {
+    Objects.requireNonNull(specification, "specification");
+    return new McpServerFeatures.SyncToolSpecification(
+        specification.tool(),
+        new GuardedToolCallHandler(
+            specification.callHandler(), useCase, resultUseCase, agentIdResolver, clock));
   }
 }

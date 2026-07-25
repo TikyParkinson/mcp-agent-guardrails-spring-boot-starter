@@ -53,8 +53,12 @@ docs(ratelimit): document window-boundary burst trade-off
 4. **`deps` commits** must state in the body that the version was verified as latest GA on
    Maven Central (project rule, ARCHITECTURE.md §2).
 5. Reference issues in the footer (`Fixes #123`), not in the summary.
-6. Update [CHANGELOG.md](../CHANGELOG.md) under `[Unreleased]` in the same pull request for
-   any `feat`, `fix`, `deps`, `refactor` or `perf` commit.
+6. [CHANGELOG.md](../CHANGELOG.md) is consolidated **at release time**: when the release PR
+   (`develop` → `main`) is opened, the `Changelog` workflow collects every `feat`/`fix`/
+   `deps`/`refactor`/`perf` commit the release brings, and adds the missing entries under
+   `[Unreleased]` (entries you already wrote by hand are detected and kept). Without a
+   `CHANGELOG_BOT_TOKEN` secret the check fails instead of auto-committing, posting the
+   ready-to-paste block as a PR comment — a release cannot merge with an incomplete changelog.
 
 ## Releases
 

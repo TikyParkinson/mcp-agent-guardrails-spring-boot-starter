@@ -14,6 +14,8 @@ No auto-configuration here yet — the `spring-boot-starter` integration ships s
 - Verdicts: baseline established or match ⇒ `Allow`; drift without approval ⇒ **`Deny`** by
   default (configurable to `Escalate`). Runs at order `-50` — trusting the tool precedes any
   decision about the agent.
+- A tool with **no registered definition** cannot be fingerprinted, so it is `Allow`ed by
+  default; harden to `DENY` or `ESCALATE` when every tool is expected to be registered.
 - **Explicit approval flow**: a `Mismatch` reports the new fingerprint; approve exactly that
   fingerprint through `ApproveToolChangeUseCase.approve(toolName, fingerprint)` — what was
   reviewed is what gets trusted.
@@ -28,20 +30,25 @@ No auto-configuration here yet — the `spring-boot-starter` integration ships s
 | `mcp.guardrails.tool-integrity.on-mismatch` | `DENY` | `DENY` or `ESCALATE` when a definition drifts from its baseline. |
 | `mcp.guardrails.tool-integrity.on-unknown-definition` | `ALLOW` | `ALLOW`, `DENY` or `ESCALATE` when the tool has no registered definition. |
 
-## Pluggable store
+## Replacing the store and the catalog
 
-The port is
-`io.github.tikyparkinson.mcpguardrails.toolintegrity.application.port.out.ToolBaselineStorePort`
-(`find` / atomic `establishIfAbsent` / `replace`). The in-memory default
-(`InMemoryToolBaselineStoreAdapter`) loses baselines on restart — fine for development, but
-rug-pull attacks live *across* deployments: for real protection use the reference
-`JdbcToolBaselineStoreAdapter` (PostgreSQL, tested with Testcontainers; DDL in
+Both outbound ports live in
+`io.github.tikyparkinson.mcpguardrails.toolintegrity.application.port.out`.
+
+**`ToolBaselineStorePort`** — `find` / atomic `establishIfAbsent` / `replace`. The in-memory
+default (`InMemoryToolBaselineStoreAdapter`) loses baselines on restart, and rug-pull attacks
+live *across* deployments: a restart re-trusts whatever the tool looks like at that moment. For
+real protection use the reference `JdbcToolBaselineStoreAdapter` (PostgreSQL, `ON CONFLICT`
+upsert keeping `establishIfAbsent` atomic under concurrency, tested with Testcontainers; DDL in
 [src/main/resources/mcp-guardrails-tool-integrity-schema.sql](src/main/resources/mcp-guardrails-tool-integrity-schema.sql))
-or expose your own persistent `ToolBaselineStorePort` bean.
+or expose your own persistent implementation. Implementations must not swallow failures — a
+broken store surfaces as a `RuntimeException` so the chain fails closed.
 
-Current definitions reach the guardrail through `ToolDefinitionCatalogPort`; the in-memory
-catalog is populated at startup via `InMemoryToolDefinitionCatalog.register(...)` using
-`McpToolDefinitionMapper.from(tool)`.
+**`ToolDefinitionCatalogPort`** — `findByName`, the source of the *current* definition to verify
+(the core invocation context does not carry it). The default `InMemoryToolDefinitionCatalog` is
+populated by the wiring layer at startup with
+`register(McpToolDefinitionMapper.from(tool))`; `register` is adapter API, deliberately outside
+the port. Replace it if your definitions come from a registry rather than the local MCP server.
 
 ## License
 

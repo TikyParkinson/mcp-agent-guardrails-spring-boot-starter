@@ -31,6 +31,7 @@ Our primary goals are:
 | [guardrails-authz](guardrails-authz) | Declarative agent→tool authorization policy (first-match-wins rules) |
 | [guardrails-injection-guard](guardrails-injection-guard) | Rule-based prompt-injection detection over tool arguments |
 | [guardrails-ratelimit](guardrails-ratelimit) | Fixed-window rate limiting per (agent, tool) pair |
+| [guardrails-tool-integrity](guardrails-tool-integrity) | Trust-on-first-use fingerprint of each tool definition, blocking tool-poisoning rug-pulls |
 | [spring-boot-starter](spring-boot-starter) | Auto-configuration that assembles everything — the artifact you import |
 
 ## Installation and Getting Started

@@ -1,157 +1,158 @@
 # ARCHITECTURE.md — mcp-guardrails-spring-boot-starter
 
-Este documento es la **ley del proyecto**. Los 5 agentes (`spec-architect`, `domain-builder`,
-`adapter-builder`, `test-engineer`, `code-reviewer`) deben leerlo antes de producir nada y
-no pueden contradecirlo. Si un spec o un fragmento de código choca con este documento, gana
-este documento.
+This document is the **law of the project**. The 5 agents (`spec-architect`, `domain-builder`,
+`adapter-builder`, `test-engineer`, `code-reviewer`) must read it before producing anything and
+cannot contradict it. If a spec or a fragment of code clashes with this document, this document
+wins.
 
-## 1. Identidad del proyecto
+## 1. Project identity
 
-| Campo           | Valor                                                                                      |
+| Field           | Value                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------ |
 | groupId         | `io.github.tikyparkinson`                                                                  |
-| artifactId raíz | `mcp-guardrails-spring-boot-starter`                                                        |
-| Repositorio     | `https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter`                 |
-| Build tool      | Maven (multi-módulo)                                                                        |
-| Java            | 25 (LTS), `--release 25`, preview features **desactivadas**                                |
-| Licencia        | Apache License 2.0 (header en cabecera de cada `.java`)                                    |
-| Distribución    | GitHub (código) + Maven Central (artefactos, vía Central Publisher Portal / OSSRH sucesor) |
+| Root artifactId | `mcp-guardrails-spring-boot-starter`                                                        |
+| Repository      | `https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter`                 |
+| Build tool      | Maven (multi-module)                                                                        |
+| Java            | 25 (LTS), `--release 25`, preview features **disabled**                                    |
+| License         | Apache License 2.0 (header at the top of every `.java`)                                    |
+| Distribution    | GitHub (source) + Maven Central (artifacts, via Central Publisher Portal / OSSRH successor) |
 
-## 2. Regla de oro de versiones: "siempre la última GA"
+## 2. Golden rule on versions: "always the latest GA"
 
-Ningún agente puede escribir un número de versión de memoria. Antes de fijar la versión de
-**Spring Boot, Spring AI, MCP Java SDK, JUnit 5, Mockito, Testcontainers, Jacoco, Spotless o
-Checkstyle**, el agente debe verificar la última versión **GA (no milestone, no RC, no SNAPSHOT)**
-consultando Maven Central (`search.maven.org`) o el repositorio oficial en GitHub. Si el agente
-no tiene forma de verificarlo en el momento, debe dejarlo marcado explícitamente como
-`// TODO(version-check): verificar última GA antes de mergear` en vez de inventar un número.
+No agent may write a version number from memory. Before pinning the version of **Spring Boot,
+Spring AI, the MCP Java SDK, JUnit 5, Mockito, Testcontainers, Jacoco, Spotless or Checkstyle**,
+the agent must verify the latest **GA release (no milestone, no RC, no SNAPSHOT)** against Maven
+Central (`search.maven.org`) or the official GitHub repository. If the agent has no way to verify
+it at that moment, it must leave it explicitly marked as
+`// TODO(version-check): verify latest GA before merging` instead of inventing a number.
 
-## 3. Arquitectura hexagonal — reglas duras
+## 3. Hexagonal architecture — hard rules
 
-Cada guardrail es un hexágono independiente. La regla de dependencia es unidireccional:
+Every guardrail is an independent hexagon. The dependency rule is unidirectional:
 
 ```
-adapters (in/out)  ──depends on──>  application (casos de uso, puertos)  ──depends on──>  domain
+adapters (in/out)  ──depends on──>  application (use cases, ports)  ──depends on──>  domain
 ```
 
-- **`domain`**: entidades, value objects (siempre `record` inmutables cuando aplique), reglas de
-  negocio puras. **Cero** imports de Spring, cero I/O, cero anotaciones de framework. Si una clase
-  de dominio importa algo que no sea JDK puro o otra clase del propio dominio, es un defecto y
-  `code-reviewer` debe rechazarlo.
-- **`application`**: casos de uso (interactors) que orquestan el dominio, y los **puertos**
-  (interfaces) `...Port` que definen qué necesita el caso de uso del mundo exterior
-  (`AuditLogStorePort`, `RateLimitStorePort`, etc.). Los puertos son contratos, no implementaciones.
-- **`adapters/in`**: quien "entra" al hexágono. Aquí vive el interceptor de llamadas MCP
-  (tool-call interceptor) que traduce una invocación real de una tool en una llamada al caso de uso.
-- **`adapters/out`**: quien "sale" del hexágono. Implementaciones concretas de los puertos
+- **`domain`**: entities, value objects (always immutable `record`s where applicable), pure
+  business rules. **Zero** Spring imports, zero I/O, zero framework annotations. If a domain class
+  imports anything other than plain JDK or another class of the domain itself, it is a defect and
+  `code-reviewer` must reject it.
+- **`application`**: use cases (interactors) that orchestrate the domain, and the **ports**
+  (`...Port` interfaces) that define what the use case needs from the outside world
+  (`AuditLogStorePort`, `RateLimitStorePort`, etc.). Ports are contracts, not implementations.
+- **`adapters/in`**: whatever "enters" the hexagon. This is where the MCP tool-call interceptor
+  lives, translating a real tool invocation into a call to the use case.
+- **`adapters/out`**: whatever "exits" the hexagon. Concrete implementations of the ports
   (`JdbcAuditLogStoreAdapter`, `InMemoryRateLimitStoreAdapter`, etc.).
-- **`infrastructure`**: exclusivamente configuración de Spring Boot: clases `@AutoConfiguration`,
-  `@ConfigurationProperties`, `spring.factories` / `AutoConfiguration.imports`. Nada de lógica de
-  negocio aquí.
+- **`infrastructure`**: exclusively Spring Boot configuration: `@AutoConfiguration` classes,
+  `@ConfigurationProperties`, `spring.factories` / `AutoConfiguration.imports`. No business logic
+  here.
 
-## 4. Persistencia: puerto/adaptador plugable
+## 4. Persistence: pluggable port/adapter
 
-Cada guardrail que necesite persistir estado (auditoría, rate limiting) define su propio puerto
-`out` (ej. `AuditLogStorePort`). El starter **siempre** trae una implementación in-memory por
-defecto (`@ConditionalOnMissingBean`) para que funcione sin configuración, y documenta cómo el
-usuario final sustituye esa bean por su propio adaptador (JDBC, Redis, lo que sea). El proyecto
-en sí solo implementa, como referencia probada con Testcontainers, un adaptador JDBC/PostgreSQL
-de ejemplo — no se asume que todo usuario use Postgres.
+Every guardrail that needs to persist state (auditing, rate limiting) defines its own `out` port
+(e.g. `AuditLogStorePort`). The starter **always** ships a default in-memory implementation
+(`@ConditionalOnMissingBean`) so that it works with no configuration, and documents how the end
+user replaces that bean with their own adapter (JDBC, Redis, whatever). The project itself only
+implements, as a reference tested with Testcontainers, an example JDBC/PostgreSQL adapter — it is
+not assumed that every user runs Postgres.
 
-## 5. Módulos Maven
+## 5. Maven modules
 
 ```
 mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, parent)
-├── guardrails-core/                    ✅ hecho — Guardrail SPI, chain, GuardrailDecision, tool-call interceptor
-├── guardrails-audit/                   ✅ hecho — auditoría/logging de tool calls
-├── guardrails-authz/                   ✅ hecho — autorización agente→tool
-├── guardrails-injection-guard/         ✅ hecho — anti prompt-injection sobre argumentos
-├── guardrails-ratelimit/               ✅ hecho — rate limiting por (agente, tool)
-├── guardrails-tool-integrity/          🚧 nuevo — anti tool-poisoning: hash/baseline de la descripción de cada tool
-├── guardrails-credential-leak-guard/   🚧 nuevo — detecta y redacta secretos/credenciales en argumentos y resultados
-├── guardrails-egress-control/          🚧 nuevo — allowlist de destinos salientes (HTTP, email, mensajería) por tool
-├── guardrails-anomaly-detector/        🚧 nuevo — detecta loops e invocaciones repetidas anómalas, usando el histórico de audit/ratelimit
-├── guardrails-approval-gate/           🚧 nuevo — implementa la ejecución real de una decisión `Escalate`: pausa la acción hasta aprobación humana
-├── guardrails-trifecta-correlator/     🚧 nuevo — correlaciona, a nivel de sesión, si las 3 señales de la "lethal trifecta" están activas a la vez
-└── spring-boot-starter/                ✅ hecho — autoconfiguración que agrega todo
+├── guardrails-core/                    ✅ done — Guardrail SPI, chain, GuardrailDecision, tool-call interceptor
+├── guardrails-audit/                   ✅ done — auditing/logging of tool calls
+├── guardrails-authz/                   ✅ done — agent→tool authorization
+├── guardrails-injection-guard/         ✅ done — anti prompt-injection over arguments
+├── guardrails-ratelimit/               ✅ done — rate limiting per (agent, tool)
+├── guardrails-tool-integrity/          ✅ done — anti tool-poisoning: SHA-256 (TOFU) baseline of each tool definition
+├── guardrails-credential-leak-guard/   🚧 new — detects and redacts secrets/credentials in arguments and results
+├── guardrails-egress-control/          🚧 new — allowlist of outbound destinations (HTTP, email, messaging) per tool
+├── guardrails-anomaly-detector/        🚧 new — detects loops and anomalous repeated invocations, using the audit/ratelimit history
+├── guardrails-approval-gate/           🚧 new — implements the actual execution of an `Escalate` decision: pauses the action until human approval
+├── guardrails-trifecta-correlator/     🚧 new — correlates, at session level, whether the 3 signals of the "lethal trifecta" are active at once
+└── spring-boot-starter/                ✅ done — auto-configuration that assembles everything
 ```
 
-Cada módulo `guardrails-*` sigue internamente la subdivisión `domain / application / adapter-in
-/ adapter-out`. `spring-boot-starter` solo contiene `infrastructure` (autoconfiguración) y
-depende de los módulos anteriores. Ninguno importa otro módulo `guardrails-*` como dependencia
-Maven: si un guardrail necesita saber qué decidieron otros (caso de `trifecta-correlator`), lo
-hace leyendo la traza de decisión ya expuesta por `guardrails-core` para la invocación en curso,
-nunca importando el módulo del otro guardrail.
+Every `guardrails-*` module internally follows the `domain / application / adapter-in /
+adapter-out` subdivision. `spring-boot-starter` only contains `infrastructure`
+(auto-configuration) and depends on the modules above. None of them imports another
+`guardrails-*` module as a Maven dependency: if a guardrail needs to know what the others
+decided (the `trifecta-correlator` case), it does so by reading the decision trace already
+exposed by `guardrails-core` for the invocation in flight, never by importing the other
+guardrail's module.
 
-## 6. Orden de construcción
+## 6. Build order
 
-**Hechos (no tocar):** `guardrails-core` → `guardrails-audit` → `guardrails-authz` →
-`guardrails-injection-guard` → `guardrails-ratelimit` → `spring-boot-starter` (v0.1.0 ya en
+**Done (do not touch):** `guardrails-core` → `guardrails-audit` → `guardrails-authz` →
+`guardrails-injection-guard` → `guardrails-ratelimit` → `spring-boot-starter` (v0.1.0 already on
 Maven Central).
 
-**Pendientes, en este orden:**
+**Pending, in this order:**
 
-7. `guardrails-tool-integrity` — sin dependencia de los nuevos, puede ir primero.
-8. `guardrails-credential-leak-guard` — mismo nivel que `injection-guard` (analiza contenido de
-   tool), sin dependencias nuevas.
-9. `guardrails-egress-control` — sin dependencias nuevas.
-10. `guardrails-anomaly-detector` — depende de datos históricos que ya exponen `guardrails-audit`
-    y `guardrails-ratelimit` (ya hechos), por eso no puede ir antes que ellos aunque estos ya
-    estén construidos.
-11. `guardrails-approval-gate` — implementa qué pasa cuando la chain devuelve `Escalate`; debe
-    existir antes que el correlador porque este lo invoca.
-12. `guardrails-trifecta-correlator` — el más complejo: lee la traza de `authz`,
-    `injection-guard` y `egress-control` para esa invocación/sesión, y si detecta las 3
-    condiciones activas a la vez, fuerza una decisión `Escalate` que resuelve `approval-gate`.
-    Va último porque depende conceptualmente de que 9, 10 y 11 ya existan.
+7. `guardrails-tool-integrity` — ✅ done. No dependency on the new ones, so it went first.
+8. `guardrails-credential-leak-guard` — same level as `injection-guard` (analyses tool content),
+   no new dependencies.
+9. `guardrails-egress-control` — no new dependencies.
+10. `guardrails-anomaly-detector` — depends on historical data already exposed by
+    `guardrails-audit` and `guardrails-ratelimit` (both done), which is why it cannot come before
+    them even though they are already built.
+11. `guardrails-approval-gate` — implements what happens when the chain returns `Escalate`; it
+    must exist before the correlator because the correlator invokes it.
+12. `guardrails-trifecta-correlator` — the most complex one: reads the trace of `authz`,
+    `injection-guard` and `egress-control` for that invocation/session and, if it detects the 3
+    conditions active at once, forces an `Escalate` decision that `approval-gate` resolves. It
+    goes last because it conceptually depends on 9, 10 and 11 already existing.
 
-No se empieza un módulo nuevo sin que el anterior haya pasado por los 5 agentes completos
-(spec → domain → adapter → test → review) y `code-reviewer` lo haya aprobado.
+A new module is not started until the previous one has gone through all 5 agents
+(spec → domain → adapter → test → review) and `code-reviewer` has approved it.
 
-**Flujo por rama, módulo a módulo:** cada módulo pendiente se construye en su propia rama
-`feature/<modulo>` creada desde `develop` (ej. `feature/guardrails-tool-integrity`). Los 5
-agentes corren dentro de esa rama. Solo cuando `code-reviewer` aprueba y existe
-`docs/specs/<modulo>-DONE.md`, se abre PR hacia `develop`. No se arranca la siguiente rama hasta
-que el PR anterior esté mergeado.
+**Branch flow, module by module:** every pending module is built on its own branch
+`feature/<module>` created from `develop` (e.g. `feature/guardrails-tool-integrity`). The 5
+agents run inside that branch. Only when `code-reviewer` approves and
+`docs/specs/<module>-DONE.md` exists is a PR opened towards `develop`. The next branch is not
+started until the previous PR is merged.
 
-## 7. Estándares de código limpio (obligatorios, sin excepción)
+## 7. Clean code standards (mandatory, no exceptions)
 
-- Métodos: máximo ~25 líneas, una responsabilidad. Si un método necesita comentarios para
-  explicar "qué hace" (no "por qué"), hay que dividirlo.
-- Nada de `null` como valor de retorno en dominio/aplicación: usar `Optional<T>` o modelar el caso
-  con un tipo (`sealed interface` + variantes).
-- Sin estado mutable estático, sin singletons manuales (Spring gestiona el ciclo de vida).
-- Sin dependencias "por si acaso": cada `<dependency>` en cada `pom.xml` debe estar justificada
-  en el spec del módulo. `code-reviewer` rechaza cualquier dependencia no listada ahí.
-- Nombres de paquete: `io.github.tikyparkinson.mcpguardrails.<modulo>.<capa>` (ej.
+- Methods: at most ~25 lines, one responsibility. If a method needs comments to explain "what it
+  does" (not "why"), it must be split.
+- No `null` as a return value in domain/application: use `Optional<T>` or model the case with a
+  type (`sealed interface` + variants).
+- No mutable static state, no hand-rolled singletons (Spring manages the lifecycle).
+- No "just in case" dependencies: every `<dependency>` in every `pom.xml` must be justified in the
+  module's spec. `code-reviewer` rejects any dependency not listed there.
+- Package names: `io.github.tikyparkinson.mcpguardrails.<module>.<layer>` (e.g.
   `io.github.tikyparkinson.mcpguardrails.audit.domain`).
-- Java 25: usar `record` para value objects, `sealed interface` para modelar variantes cerradas
-  (ej. resultado de una decisión de guardrail: `Allow`, `Deny(reason)`, `Escalate(reason)`),
-  pattern matching en `switch` donde aporte claridad. No usar preview features.
+- Java 25: use `record` for value objects, `sealed interface` to model closed variants (e.g. the
+  result of a guardrail decision: `Allow`, `Deny(reason)`, `Escalate(reason)`), pattern matching in
+  `switch` where it adds clarity. Do not use preview features.
 
-## 8. Calidad y build
+## 8. Quality and build
 
-- **Spotless** (formateo automático, `google-java-format` o equivalente) + **Checkstyle**
-  (validación: sin wildcard imports, orden de imports, complejidad ciclomática máxima, longitud
-  de línea). Ambos corren en `mvn verify` y **rompen el build** si fallan.
-- **Jacoco**: mínimo 80% de cobertura de líneas y de ramas por módulo, aplicado como
-  `check` que falla el build si no se cumple.
-- **Testcontainers**: obligatorio para probar cualquier adaptador `out` que hable con un store
-  real (ej. el adaptador JDBC/Postgres de referencia). Los tests de dominio y aplicación usan
-  JUnit 5 + Mockito puro, sin containers.
-- CI: GitHub Actions, un workflow que corra `mvn -B verify` en cada push/PR, más un job de
-  release que publique a Maven Central en tags `v*.*.*`.
+- **Spotless** (automatic formatting, `google-java-format` or equivalent) + **Checkstyle**
+  (validation: no wildcard imports, import order, maximum cyclomatic complexity, line length). Both
+  run in `mvn verify` and **break the build** on failure.
+- **Jacoco**: minimum 80% line and branch coverage per module, enforced as a `check` that fails the
+  build when unmet.
+- **Testcontainers**: mandatory to test any `out` adapter talking to a real store (e.g. the
+  reference JDBC/Postgres adapter). Domain and application tests use plain JUnit 5 + Mockito, with
+  no containers.
+- CI: GitHub Actions, one workflow running `mvn -B verify` on every push/PR, plus a release job
+  publishing to Maven Central on `v*.*.*` tags.
 
-## 9. Definición de "hecho" (Definition of Done) por módulo
+## 9. Definition of Done per module
 
-Un módulo `guardrails-*` está terminado solo si `code-reviewer` confirma **todos** estos puntos:
+A `guardrails-*` module is finished only if `code-reviewer` confirms **all** of these points:
 
-- [ ] Spec en `docs/specs/<modulo>-spec.md` existe y el código no se desvía de ella
-- [ ] Cero imports de Spring en `domain`
-- [ ] Todas las versiones de dependencias son GA vigentes verificadas, ninguna inventada
-- [ ] Spotless + Checkstyle pasan sin warnings
-- [ ] Cobertura Jacoco ≥ 80% líneas y ramas
-- [ ] Adaptadores `out` con store real cubiertos por test de Testcontainers
-- [ ] Sin dependencias no justificadas en el `pom.xml`
-- [ ] Header de licencia Apache 2.0 presente en cada archivo `.java`
-- [ ] README del módulo explica el puerto plugable y cómo sustituir el adaptador por defecto
+- [ ] The spec in `docs/specs/<module>-spec.md` exists and the code does not deviate from it
+- [ ] Zero Spring imports in `domain`
+- [ ] Every dependency version is a verified current GA, none invented
+- [ ] Spotless + Checkstyle pass with no warnings
+- [ ] Jacoco coverage ≥ 80% lines and branches
+- [ ] `out` adapters backed by a real store are covered by a Testcontainers test
+- [ ] No unjustified dependencies in the `pom.xml`
+- [ ] Apache 2.0 license header present in every `.java` file
+- [ ] The module README explains the pluggable port and how to replace the default adapter

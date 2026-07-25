@@ -29,17 +29,19 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class InMemoryToolBaselineStoreAdapter implements ToolBaselineStorePort {
 
+  private static final String TOOL_NAME = "toolName";
+
   private final Map<String, ToolFingerprint> baselines = new ConcurrentHashMap<>();
 
   @Override
   public Optional<ToolFingerprint> find(String toolName) {
-    Objects.requireNonNull(toolName, "toolName");
+    Objects.requireNonNull(toolName, TOOL_NAME);
     return Optional.ofNullable(baselines.get(toolName));
   }
 
   @Override
   public ToolFingerprint establishIfAbsent(String toolName, ToolFingerprint candidate) {
-    Objects.requireNonNull(toolName, "toolName");
+    Objects.requireNonNull(toolName, TOOL_NAME);
     Objects.requireNonNull(candidate, "candidate");
     ToolFingerprint existing = baselines.putIfAbsent(toolName, candidate);
     return existing == null ? candidate : existing;
@@ -47,7 +49,7 @@ public final class InMemoryToolBaselineStoreAdapter implements ToolBaselineStore
 
   @Override
   public void replace(String toolName, ToolFingerprint fingerprint) {
-    Objects.requireNonNull(toolName, "toolName");
+    Objects.requireNonNull(toolName, TOOL_NAME);
     Objects.requireNonNull(fingerprint, "fingerprint");
     baselines.put(toolName, fingerprint);
   }

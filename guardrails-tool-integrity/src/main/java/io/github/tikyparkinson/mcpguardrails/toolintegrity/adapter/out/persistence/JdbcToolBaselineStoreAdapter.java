@@ -29,6 +29,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  */
 public final class JdbcToolBaselineStoreAdapter implements ToolBaselineStorePort {
 
+  private static final String TOOL_NAME = "toolName";
+
+  private static final String FINGERPRINT = "fingerprint";
+
   private static final String SELECT_SQL =
       "SELECT fingerprint FROM mcp_tool_baseline WHERE tool_name = :toolName";
 
@@ -49,10 +53,10 @@ public final class JdbcToolBaselineStoreAdapter implements ToolBaselineStorePort
 
   @Override
   public Optional<ToolFingerprint> find(String toolName) {
-    Objects.requireNonNull(toolName, "toolName");
+    Objects.requireNonNull(toolName, TOOL_NAME);
     return jdbcClient
         .sql(SELECT_SQL)
-        .param("toolName", toolName)
+        .param(TOOL_NAME, toolName)
         .query(String.class)
         .optional()
         .map(String::strip)
@@ -61,12 +65,12 @@ public final class JdbcToolBaselineStoreAdapter implements ToolBaselineStorePort
 
   @Override
   public ToolFingerprint establishIfAbsent(String toolName, ToolFingerprint candidate) {
-    Objects.requireNonNull(toolName, "toolName");
+    Objects.requireNonNull(toolName, TOOL_NAME);
     Objects.requireNonNull(candidate, "candidate");
     jdbcClient
         .sql(INSERT_IF_ABSENT_SQL)
-        .param("toolName", toolName)
-        .param("fingerprint", candidate.value())
+        .param(TOOL_NAME, toolName)
+        .param(FINGERPRINT, candidate.value())
         .update();
     return find(toolName)
         .orElseThrow(() -> new IllegalStateException("baseline vanished for " + toolName));
@@ -74,12 +78,12 @@ public final class JdbcToolBaselineStoreAdapter implements ToolBaselineStorePort
 
   @Override
   public void replace(String toolName, ToolFingerprint fingerprint) {
-    Objects.requireNonNull(toolName, "toolName");
-    Objects.requireNonNull(fingerprint, "fingerprint");
+    Objects.requireNonNull(toolName, TOOL_NAME);
+    Objects.requireNonNull(fingerprint, FINGERPRINT);
     jdbcClient
         .sql(UPSERT_SQL)
-        .param("toolName", toolName)
-        .param("fingerprint", fingerprint.value())
+        .param(TOOL_NAME, toolName)
+        .param(FINGERPRINT, fingerprint.value())
         .update();
   }
 }

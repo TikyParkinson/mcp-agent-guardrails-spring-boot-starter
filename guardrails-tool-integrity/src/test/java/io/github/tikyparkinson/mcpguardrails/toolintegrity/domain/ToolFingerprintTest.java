@@ -109,13 +109,14 @@ class ToolFingerprintTest {
   void shouldFailClosedWhenShaAlgorithmUnavailable() {
     // given: unreachable on a compliant JVM (SHA-256 is mandatory), but the contract must be
     // fail-closed rather than fail-open if a broken runtime ever violates it
+    ToolDefinition def = definition("d");
     try (MockedStatic<MessageDigest> digests = Mockito.mockStatic(MessageDigest.class)) {
       digests
           .when(() -> MessageDigest.getInstance("SHA-256"))
           .thenThrow(new NoSuchAlgorithmException("broken JVM"));
 
       // when / then
-      assertThrows(IllegalStateException.class, () -> ToolFingerprint.of(definition("d")));
+      assertThrows(IllegalStateException.class, () -> ToolFingerprint.of(def));
     }
   }
 

@@ -26,12 +26,13 @@ Our primary goals are:
 
 | Module | Description |
 |---|---|
-| [guardrails-core](guardrails-core) | Shared model, `Guardrail` SPI, evaluation chain and the MCP tool-call interceptor |
+| [guardrails-core](guardrails-core) | Shared model, `Guardrail` and `ResultGuardrail` SPIs, inbound and outbound chains, and the MCP tool-call interceptor |
 | [guardrails-audit](guardrails-audit) | Audit trail of tool invocations + the audit bus used by the other guardrails |
 | [guardrails-authz](guardrails-authz) | Declarative agent→tool authorization policy (first-match-wins rules) |
 | [guardrails-injection-guard](guardrails-injection-guard) | Rule-based prompt-injection detection over tool arguments |
 | [guardrails-ratelimit](guardrails-ratelimit) | Fixed-window rate limiting per (agent, tool) pair |
 | [guardrails-tool-integrity](guardrails-tool-integrity) | Trust-on-first-use fingerprint of each tool definition, blocking tool-poisoning rug-pulls |
+| [guardrails-credential-leak-guard](guardrails-credential-leak-guard) | Detects credentials in tool arguments and redacts the ones a tool returns |
 | [spring-boot-starter](spring-boot-starter) | Auto-configuration that assembles everything — the artifact you import |
 
 ## Installation and Getting Started

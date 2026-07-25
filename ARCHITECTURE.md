@@ -62,13 +62,13 @@ not assumed that every user runs Postgres.
 
 ```
 mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, parent)
-├── guardrails-core/                    ✅ done — Guardrail SPI, chain, GuardrailDecision, tool-call interceptor
+├── guardrails-core/                    ✅ done — Guardrail SPI, chain, GuardrailDecision, tool-call interceptor, outbound ResultGuardrail SPI (extensible, see §5.1)
 ├── guardrails-audit/                   ✅ done — auditing/logging of tool calls
 ├── guardrails-authz/                   ✅ done — agent→tool authorization
 ├── guardrails-injection-guard/         ✅ done — anti prompt-injection over arguments
 ├── guardrails-ratelimit/               ✅ done — rate limiting per (agent, tool)
 ├── guardrails-tool-integrity/          ✅ done — anti tool-poisoning: SHA-256 (TOFU) baseline of each tool definition
-├── guardrails-credential-leak-guard/   🚧 new — detects and redacts secrets/credentials in arguments and results
+├── guardrails-credential-leak-guard/   ✅ done — detects credentials in arguments and redacts the ones a tool returns
 ├── guardrails-egress-control/          🚧 new — allowlist of outbound destinations (HTTP, email, messaging) per tool
 ├── guardrails-anomaly-detector/        🚧 new — detects loops and anomalous repeated invocations, using the audit/ratelimit history
 ├── guardrails-approval-gate/           🚧 new — implements the actual execution of an `Escalate` decision: pauses the action until human approval
@@ -84,17 +84,40 @@ decided (the `trifecta-correlator` case), it does so by reading the decision tra
 exposed by `guardrails-core` for the invocation in flight, never by importing the other
 guardrail's module.
 
+### 5.1 Evolution of `guardrails-core`
+
+`guardrails-core` is the SPI of the project, not a frozen module: new guardrails may require
+extension points that do not exist yet (an outbound hook, a session-scoped trace, the real
+execution of an `Escalate`). Extending it is legitimate, under these conditions:
+
+- **Additive only.** New types, new ports, new `default` methods. Never change the signature or
+  the semantics of an existing SPI type: the guardrails already released must compile and behave
+  exactly the same.
+- **Neutral when unused.** If nobody registers an implementation of the new extension point, the
+  behaviour of the chain must be identical to the previous version.
+- **Motivated by a real consumer.** An extension point is only added together with the module
+  that needs it, never speculatively.
+- **Its own spec.** The extension is specified in `docs/specs/guardrails-core-<extension>-spec.md`
+  and goes through the same 5 agents as any module, before the module that consumes it.
+- **A breaking change is not an extension.** If a change cannot be additive, it is a major version
+  of the whole project and is decided outside this document.
+
+The same applies to `spring-boot-starter` when it has to wire a new extension point.
+
 ## 6. Build order
 
-**Done (do not touch):** `guardrails-core` → `guardrails-audit` → `guardrails-authz` →
+**Released (do not rebuild):** `guardrails-core` → `guardrails-audit` → `guardrails-authz` →
 `guardrails-injection-guard` → `guardrails-ratelimit` → `spring-boot-starter` (v0.1.0 already on
-Maven Central).
+Maven Central). These modules are not rebuilt from scratch; `guardrails-core` and
+`spring-boot-starter` may still receive additive extensions under §5.1.
 
 **Pending, in this order:**
 
 7. `guardrails-tool-integrity` — ✅ done. No dependency on the new ones, so it went first.
-8. `guardrails-credential-leak-guard` — same level as `injection-guard` (analyses tool content),
-   no new dependencies.
+8. `guardrails-credential-leak-guard` — ✅ done. Same level as `injection-guard` (analyses tool
+   content). Required the core outbound SPI (§5.1): the original `Guardrail` SPI only saw the
+   invocation before the tool ran, so the result could not be inspected or redacted. The
+   extension `guardrails-core-outbound-spi` was specified and built first, in the same branch.
 9. `guardrails-egress-control` — no new dependencies.
 10. `guardrails-anomaly-detector` — depends on historical data already exposed by
     `guardrails-audit` and `guardrails-ratelimit` (both done), which is why it cannot come before

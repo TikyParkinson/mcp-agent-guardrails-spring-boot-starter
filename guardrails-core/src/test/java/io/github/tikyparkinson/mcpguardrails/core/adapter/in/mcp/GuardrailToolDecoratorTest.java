@@ -22,9 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.domain.AgentId;
+import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
+import io.github.tikyparkinson.mcpguardrails.core.domain.Block;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ChainVerdict;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
+import io.github.tikyparkinson.mcpguardrails.core.domain.PassThrough;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ResultVerdict;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -80,5 +85,53 @@ class GuardrailToolDecoratorTest {
     assertThrows(
         NullPointerException.class,
         () -> GuardrailToolDecorator.decorate(null, useCase, ex -> new AgentId("a"), CLOCK));
+  }
+
+  @Test
+  void shouldGuardBothDirectionsWhenDecoratedWithOutboundChain() {
+    // given
+    McpSchema.Tool tool = McpSchema.Tool.builder("read_file").build();
+    McpServerFeatures.SyncToolSpecification original =
+        McpServerFeatures.SyncToolSpecification.builder()
+            .tool(tool)
+            .callHandler(
+                (ex, req) ->
+                    McpSchema.CallToolResult.builder().addTextContent("key=sk-live-1").build())
+            .build();
+    EvaluateToolInvocationUseCase allowAll = context -> new ChainVerdict(new Allow(), List.of());
+    EvaluateToolResultUseCase blockLeaks =
+        context -> new ResultVerdict(new Block("credential detected"), List.of());
+
+    // when
+    McpServerFeatures.SyncToolSpecification decorated =
+        GuardrailToolDecorator.decorate(
+            original, allowAll, blockLeaks, ex -> new AgentId("a"), CLOCK);
+    McpSchema.CallToolResult result =
+        decorated
+            .callHandler()
+            .apply(
+                mock(McpSyncServerExchange.class),
+                new McpSchema.CallToolRequest("read_file", Map.of()));
+
+    // then
+    assertSame(tool, decorated.tool());
+    assertTrue(result.isError());
+    assertEquals(
+        "Tool result blocked by guardrails: credential detected",
+        ((McpSchema.TextContent) result.content().get(0)).text());
+  }
+
+  @Test
+  void shouldRejectNullSpecificationWhenDecoratingWithOutboundChain() {
+    // given
+    EvaluateToolInvocationUseCase useCase = context -> new ChainVerdict(new Deny("x"), List.of());
+    EvaluateToolResultUseCase outbound = context -> new ResultVerdict(new PassThrough(), List.of());
+
+    // when / then
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            GuardrailToolDecorator.decorate(
+                null, useCase, outbound, ex -> new AgentId("a"), CLOCK));
   }
 }

@@ -41,6 +41,7 @@
     <module>guardrails-injection-guard</module>
     <module>guardrails-ratelimit</module>
     <module>guardrails-tool-integrity</module>
+    <module>guardrails-credential-leak-guard</module>
     <module>spring-boot-starter</module>
   </modules>
 

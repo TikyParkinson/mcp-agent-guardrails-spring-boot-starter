@@ -69,7 +69,7 @@ mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, p
 ├── guardrails-ratelimit/               ✅ done — rate limiting per (agent, tool)
 ├── guardrails-tool-integrity/          ✅ done — anti tool-poisoning: SHA-256 (TOFU) baseline of each tool definition
 ├── guardrails-credential-leak-guard/   ✅ done — detects credentials in arguments and redacts the ones a tool returns
-├── guardrails-egress-control/          🚧 new — allowlist of outbound destinations (HTTP, email, messaging) per tool
+├── guardrails-egress-control/          ✅ done — allowlist of outbound destinations (HTTP, email, messaging) per tool, empty by default
 ├── guardrails-anomaly-detector/        🚧 new — detects loops and anomalous repeated invocations, using the audit/ratelimit history
 ├── guardrails-approval-gate/           🚧 new — implements the actual execution of an `Escalate` decision: pauses the action until human approval
 ├── guardrails-trifecta-correlator/     🚧 new — correlates, at session level, whether the 3 signals of the "lethal trifecta" are active at once
@@ -118,7 +118,7 @@ Maven Central). These modules are not rebuilt from scratch; `guardrails-core` an
    content). Required the core outbound SPI (§5.1): the original `Guardrail` SPI only saw the
    invocation before the tool ran, so the result could not be inspected or redacted. The
    extension `guardrails-core-outbound-spi` was specified and built first, in the same branch.
-9. `guardrails-egress-control` — no new dependencies.
+9. `guardrails-egress-control` — ✅ done. No new dependencies.
 10. `guardrails-anomaly-detector` — depends on historical data already exposed by
     `guardrails-audit` and `guardrails-ratelimit` (both done), which is why it cannot come before
     them even though they are already built.

@@ -33,6 +33,7 @@ Our primary goals are:
 | [guardrails-ratelimit](guardrails-ratelimit) | Fixed-window rate limiting per (agent, tool) pair |
 | [guardrails-tool-integrity](guardrails-tool-integrity) | Trust-on-first-use fingerprint of each tool definition, blocking tool-poisoning rug-pulls |
 | [guardrails-credential-leak-guard](guardrails-credential-leak-guard) | Detects credentials in tool arguments and redacts the ones a tool returns |
+| [guardrails-egress-control](guardrails-egress-control) | Allowlist of outbound destinations for tools with network capability, empty by default |
 | [spring-boot-starter](spring-boot-starter) | Auto-configuration that assembles everything — the artifact you import |
 
 ## Installation and Getting Started

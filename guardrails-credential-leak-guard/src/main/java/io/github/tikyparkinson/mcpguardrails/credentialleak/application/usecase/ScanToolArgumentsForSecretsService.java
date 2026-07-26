@@ -26,7 +26,11 @@ import java.util.Objects;
 public final class ScanToolArgumentsForSecretsService
     implements ScanToolArgumentsForSecretsUseCase {
 
-  private static final String LOCATION_PREFIX = "arguments";
+  /**
+   * Name of the scanned parameter, which is also the prefix of every reported location: a finding
+   * at {@code arguments.token} is a finding inside this parameter.
+   */
+  private static final String ARGUMENTS = "arguments";
 
   private final SecretPatternSetPort patternSetPort;
 
@@ -36,7 +40,7 @@ public final class ScanToolArgumentsForSecretsService
 
   @Override
   public SecretScanResult scan(Map<String, Object> arguments) {
-    Objects.requireNonNull(arguments, "arguments");
-    return SecretScanner.scan(arguments, patternSetPort.activePatterns(), LOCATION_PREFIX);
+    Objects.requireNonNull(arguments, ARGUMENTS);
+    return SecretScanner.scan(arguments, patternSetPort.activePatterns(), ARGUMENTS);
   }
 }

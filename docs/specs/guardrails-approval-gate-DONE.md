@@ -10,7 +10,7 @@
 ```
 Tests run: 96, Failures: 0, Errors: 0, Skipped: 0     BUILD SUCCESS
 
-LINE    100.0%  (153/153)
+LINE    100.0%  (151/151)
 BRANCH  100.0%  (54/54)
 METHOD  100.0%  (36/36)
 ```
@@ -57,6 +57,11 @@ Threshold required by §8 is 80% lines and 80% branches. Full reactor (12 module
 - `InMemoryApprovalRequestAdapter` exposes `pendingCount()` and `clear()`, which spec §5.2 does not
   list. Both are adapter-local observability, outside the port contract, following the precedent
   of `InMemoryEgressPolicyAdapter.currentPolicy()` and `InMemoryInvocationHistoryAdapter`.
+- The pending decision was reworked from `CountDownLatch` plus `AtomicReference` into a single
+  `CompletableFuture` while resolving `java:S899`. The first review of this module rejected it
+  because spec §5.2 still described the old primitives; §5.2, the §8 diagram and a new design
+  decision 7 now match the code. Behaviour is unchanged and the 96 tests passed untouched, which
+  is what makes it a documentation correction rather than a redesign.
 - The module holds a thread per pending approval. This is inherent to the synchronous MCP handler
   and is documented in spec §9 decision 4, in the README, and bounded by the two quotas — but it
   is the property to revisit first if the project ever adopts the SDK's asynchronous mode.

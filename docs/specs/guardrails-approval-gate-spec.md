@@ -191,17 +191,17 @@ Paquete `approval.adapter.in.escalation`.
 Paquete `approval.adapter.out.channel`.
 
 - `ConcurrentHashMap<ApprovalId, PendingApproval>`, donde cada `PendingApproval` guarda la
-  solicitud y un `CountDownLatch` de cuenta 1 más la decisión.
+  solicitud y un `CompletableFuture<ApprovalDecision>` que aún no se ha completado.
 - `submit`: comprueba las dos cuotas y registra, **atómicamente** respecto a otros `submit`. Si
   cualquiera de las dos está llena devuelve `false` sin registrar nada.
-- `awaitDecision`: `latch.await(timeout)`. Al volver —resuelta o expirada— **retira la solicitud
+- `awaitDecision`: `decision.get(timeout)`. Al volver —resuelta o expirada— **retira la solicitud
   del mapa** en ambos casos: una solicitud cuyo solicitante ya se marchó no puede quedarse
   ocupando cuota ni aparecer como pendiente ante un humano que ya no puede influir en nada.
-- `resolve`: fija la decisión y abre el latch, **una sola vez**. Una segunda llamada devuelve
-  `false` y no altera la decisión ya tomada.
+- `resolve`: `decision.complete(...)`, que devuelve `true` solo para el primero que llega. Una
+  segunda llamada devuelve `false` y no altera la decisión ya tomada.
 - `pending`: copia ordenada por `requestedAt`.
 
-**Regla dura: nunca esperar con un lock tomado.** El `await` no puede ejecutarse dentro de un
+**Regla dura: nunca esperar con un lock tomado.** La espera no puede ejecutarse dentro de un
 bloque `synchronized` ni con ningún lock del adaptador retenido. La sección crítica de `submit` y
 `resolve` dura microsegundos; la espera dura minutos, y meterla dentro serializaría todas las
 aprobaciones: una sola invocación pendiente bloquearía a las demás durante el plazo completo,
@@ -301,7 +301,7 @@ store real ⇒ sin Testcontainers.
                                  ▼
                  ┌────────────────────────────────┐
                  │ InMemoryApprovalRequestAdapter │  (sustituible)
-                 │  mapa + CountDownLatch         │
+                 │  mapa + CompletableFuture      │
                  └────────────────────────────────┘
 
    domain: ApprovalId · ApprovalRequest · ApprovalDecision (Approved | Rejected) · ApprovalPolicy
@@ -371,3 +371,20 @@ store real ⇒ sin Testcontainers.
    se quedara pendiente, un humano podría aprobar minutos después una invocación que ya fue
    denegada y cuyo hilo ya devolvió el error: una aprobación sin efecto, y una lista de pendientes
    que miente sobre lo que aún se puede decidir.
+
+7. **La decisión pendiente es un `CompletableFuture`, no un latch más una referencia.** El diseño
+   original de §5.2 usaba `CountDownLatch` para señalar y `AtomicReference` para llevar la
+   decisión, con un `compareAndSet` manual que implementaba "la primera decisión gana". Funcionaba,
+   pero obligaba a `awaitDecision` a descartar el `boolean` que devuelve `await`, porque la
+   referencia era la fuente de verdad y el latch solo despertaba; SonarQube lo señala como
+   `java:S899` y tiene razón: eran dos primitivas para una sola pregunta.
+
+   `CompletableFuture` responde las dos de forma nativa. `complete(...)` devuelve `true` solo para
+   el primero que llega, que **es** la regla de la primera decisión en vez de una simulación de
+   ella, y `get(timeout)` expresa el plazo sin dejar ningún valor sin usar. Un campo menos, un
+   `compareAndSet` menos, y ninguna diferencia observable: las dos cuotas, el retiro al terminar la
+   espera y la irrevocabilidad de la primera decisión se comportan igual, con los mismos 96 tests
+   sin tocar.
+
+   La regla dura de §5.2 sigue vigente y por el mismo motivo: `get(timeout)` tampoco puede
+   ejecutarse con un lock del adaptador retenido.

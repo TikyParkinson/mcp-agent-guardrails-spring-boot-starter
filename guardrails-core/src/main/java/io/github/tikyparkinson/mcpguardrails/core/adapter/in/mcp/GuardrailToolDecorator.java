@@ -25,6 +25,8 @@ import java.util.Objects;
 /** Wraps MCP tool specifications so their handlers run behind the guardrail chain. */
 public final class GuardrailToolDecorator {
 
+  private static final String SPECIFICATION = "specification";
+
   private GuardrailToolDecorator() {}
 
   /** Returns a copy of the given tool specification with its call handler guarded. */
@@ -33,7 +35,7 @@ public final class GuardrailToolDecorator {
       EvaluateToolInvocationUseCase useCase,
       AgentIdResolver agentIdResolver,
       Clock clock) {
-    Objects.requireNonNull(specification, "specification");
+    Objects.requireNonNull(specification, SPECIFICATION);
     return new McpServerFeatures.SyncToolSpecification(
         specification.tool(),
         new GuardedToolCallHandler(specification.callHandler(), useCase, agentIdResolver, clock));
@@ -49,7 +51,7 @@ public final class GuardrailToolDecorator {
       EvaluateToolResultUseCase resultUseCase,
       AgentIdResolver agentIdResolver,
       Clock clock) {
-    Objects.requireNonNull(specification, "specification");
+    Objects.requireNonNull(specification, SPECIFICATION);
     return new McpServerFeatures.SyncToolSpecification(
         specification.tool(),
         new GuardedToolCallHandler(
@@ -71,7 +73,7 @@ public final class GuardrailToolDecorator {
       AgentIdResolver agentIdResolver,
       Clock clock,
       EscalationResolver escalationResolver) {
-    Objects.requireNonNull(specification, "specification");
+    Objects.requireNonNull(specification, SPECIFICATION);
     return new McpServerFeatures.SyncToolSpecification(
         specification.tool(),
         new GuardedToolCallHandler(

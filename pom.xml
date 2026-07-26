@@ -44,6 +44,7 @@
     <module>guardrails-credential-leak-guard</module>
     <module>guardrails-egress-control</module>
     <module>guardrails-anomaly-detector</module>
+    <module>guardrails-approval-gate</module>
     <module>spring-boot-starter</module>
   </modules>
 

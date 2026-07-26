@@ -17,12 +17,15 @@ package io.github.tikyparkinson.mcpguardrails.core.adapter.in.mcp;
 
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.out.EscalationResolver;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import java.time.Clock;
 import java.util.Objects;
 
 /** Wraps MCP tool specifications so their handlers run behind the guardrail chain. */
 public final class GuardrailToolDecorator {
+
+  private static final String SPECIFICATION = "specification";
 
   private GuardrailToolDecorator() {}
 
@@ -32,7 +35,7 @@ public final class GuardrailToolDecorator {
       EvaluateToolInvocationUseCase useCase,
       AgentIdResolver agentIdResolver,
       Clock clock) {
-    Objects.requireNonNull(specification, "specification");
+    Objects.requireNonNull(specification, SPECIFICATION);
     return new McpServerFeatures.SyncToolSpecification(
         specification.tool(),
         new GuardedToolCallHandler(specification.callHandler(), useCase, agentIdResolver, clock));
@@ -48,10 +51,37 @@ public final class GuardrailToolDecorator {
       EvaluateToolResultUseCase resultUseCase,
       AgentIdResolver agentIdResolver,
       Clock clock) {
-    Objects.requireNonNull(specification, "specification");
+    Objects.requireNonNull(specification, SPECIFICATION);
     return new McpServerFeatures.SyncToolSpecification(
         specification.tool(),
         new GuardedToolCallHandler(
             specification.callHandler(), useCase, resultUseCase, agentIdResolver, clock));
+  }
+
+  /**
+   * Returns a copy of the given tool specification with its call handler guarded on both directions
+   * and with an escalation resolver, so an {@code Escalate} verdict can become something other than
+   * an error returned to the agent.
+   *
+   * @param escalationResolver decides what an escalated invocation actually does; {@code null}
+   *     keeps the historical behaviour, exactly as the handler defines it
+   */
+  public static McpServerFeatures.SyncToolSpecification decorate(
+      McpServerFeatures.SyncToolSpecification specification,
+      EvaluateToolInvocationUseCase useCase,
+      EvaluateToolResultUseCase resultUseCase,
+      AgentIdResolver agentIdResolver,
+      Clock clock,
+      EscalationResolver escalationResolver) {
+    Objects.requireNonNull(specification, SPECIFICATION);
+    return new McpServerFeatures.SyncToolSpecification(
+        specification.tool(),
+        new GuardedToolCallHandler(
+            specification.callHandler(),
+            useCase,
+            resultUseCase,
+            agentIdResolver,
+            clock,
+            escalationResolver));
   }
 }

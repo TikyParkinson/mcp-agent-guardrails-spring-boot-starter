@@ -47,30 +47,115 @@ Add the starter — that is all it takes:
 <dependency>
   <groupId>io.github.tikyparkinson</groupId>
   <artifactId>mcp-guardrails-spring-boot-starter</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
-Any `SyncToolSpecification` bean in your MCP server is decorated automatically; you do not
-change how you register tools. A denied call returns an `isError` MCP result and the tool never
-runs. Here is a quick teaser of a locked-down configuration:
+Any `SyncToolSpecification` bean in your MCP server is decorated automatically; you do not change
+how you register tools. A denied call returns an `isError` MCP result and the tool never runs.
+
+### Out of the box
+
+With no configuration all eleven modules load and every one of them allows: the guardrails that
+need a policy start with an empty one, so upgrading never begins rejecting calls you were already
+making. You get the audit trail, the tool-definition baseline and the anomaly history immediately;
+the rest start protecting you as you declare what your tools do.
+
+Two things are worth turning on deliberately, because they are what most of the chain reasons
+about:
+
+- **which tools reach outside**, for `egress-control`
+- **what each tool can do**, for `trifecta-correlator`
+
+### Configuring the modules
+
+Every module has its own prefix and its own `enabled` flag. Note that three prefixes are shorter
+than the module name: `egress`, `anomaly` and `trifecta`.
 
 ```yaml
 mcp:
   guardrails:
-    authz:
+    enabled: true                 # master switch; false disables everything
+
+    authz:                        # who may call what
       default-effect: DENY
       rules:
         - { agent: "prod-agent", tool: "*",             effect: ALLOW }
         - { agent: "*",          tool: "drop_database", effect: ESCALATE }
+
+    tool-integrity:               # trust on first use; blocks rug-pulls
+      on-mismatch: DENY
+      on-unknown-definition: ALLOW
+
+    injection-guard:              # prompt injection in tool arguments
+      built-in-rules-enabled: true
+
+    credential-leak:              # secrets in arguments, and in what tools return
+      on-confirmed-input: DENY
+      on-suspected-input: ESCALATE
+      on-output-text: REDACT
+
+    egress:                       # where tools are allowed to send data
+      on-violation: DENY
+      allowed-destinations: ["api.internal.example.com"]
+      tools:
+        - { name: "http_post", destination-arguments: ["url"] }
+
+    anomaly:                      # loops and sweeps in recent history
+      window: PT1M
+      repeat-threshold: 5
+      novel-tool-threshold: 3
+
+    trifecta:                     # private data + untrusted content + egress in one session
+      session-idle-timeout: PT30M
+      session-max-duration: PT2H
+      tools:
+        - { name: "read_customer", capabilities: [PRIVATE_DATA] }
+        - { name: "fetch_page",    capabilities: [UNTRUSTED_CONTENT] }
+        - { name: "send_email",    capabilities: [EXTERNAL_COMMS] }
+
+    approval:                     # holds an escalated call until a person decides
+      timeout: PT2M
+      max-pending: 20
+
     ratelimit:
       max-invocations: 60
       window: PT1M
+
+    audit:
+      in-memory-max-events: 1000
 ```
 
-Decision semantics across the chain: `Deny > Escalate > Allow`, all guardrails always evaluated,
-full decision trace kept per invocation. Each module README documents its properties and its
-pluggable port.
+Setting a module's `enabled: false` removes its guardrail from the chain and leaves the rest
+running. Each module README documents its full property list and its pluggable port.
+
+### How a call is evaluated
+
+Guardrails run in a fixed order and **all of them always evaluate**, so you get the full decision
+trace even when the first one already denied:
+
+```
+audit → tool-integrity → authz → injection-guard → credential-leak
+      → egress-control → anomaly-detector → trifecta-correlator → ratelimit
+```
+
+`audit` runs first so a denied call is still recorded; `ratelimit` runs last so a call rejected
+earlier does not consume quota. Verdicts combine as `Deny > Escalate > Allow`.
+
+After the tool returns, a second chain inspects the response — today `credential-leak` redacts
+secrets the tool put in its own output.
+
+### Escalation needs somewhere to go
+
+An `Escalate` verdict is not a rejection: it is a request for a human decision.
+[guardrails-approval-gate](guardrails-approval-gate) holds the invocation until someone approves or
+rejects it, and silence denies. It is on the classpath by default, but it needs a channel: the
+starter publishes `ResolveApprovalUseCase` as a bean for you to inject into your own controller,
+and ships no HTTP endpoint of its own. That endpoint decides who may lift a block, so protect it
+like one.
+
+If no `EscalationResolver` is present, an escalation returns an error to the agent — fail-closed,
+but indistinguishable from a failure. The starter warns about exactly that at start-up.
 
 ## Getting Help
 

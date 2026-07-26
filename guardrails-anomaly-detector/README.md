@@ -62,7 +62,7 @@ mcp:
 
 The pluggable contract is
 `io.github.tikyparkinson.mcpguardrails.anomaly.application.port.out.InvocationHistoryPort`, with
-two methods: `record(InvocationRecord)`, which must be safe under concurrency, and
+two methods: `append(InvocationRecord)`, which must be safe under concurrency, and
 `historyOf(agentId, windowStart)`, which returns the agent's window and its baseline in a single
 read and never returns null. The default `InMemoryInvocationHistoryAdapter` implements it; publish
 a bean of your own to take over. The port is the contract, not the class.

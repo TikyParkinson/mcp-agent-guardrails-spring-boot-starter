@@ -32,6 +32,8 @@ class AnomalyModelTest {
 
   private static final Instant NOW = Instant.parse("2026-07-26T10:00:00Z");
   private static final ArgumentsFingerprint FINGERPRINT = ArgumentsFingerprint.of(Map.of("q", "x"));
+  private static final Duration ONE_MINUTE = Duration.ofMinutes(1);
+  private static final Duration BACKWARDS = Duration.ofMinutes(-1);
 
   @Test
   void shouldRejectAnInvocationWithABlankAgent() {
@@ -101,8 +103,7 @@ class AnomalyModelTest {
     // when a policy is built
     // then it fails: a single call cannot be a repetition, and such a policy would report every
     // invocation as a loop
-    assertThrows(
-        IllegalArgumentException.class, () -> new AnomalyPolicy(Duration.ofMinutes(1), 1, 3, 20L));
+    assertThrows(IllegalArgumentException.class, () -> new AnomalyPolicy(ONE_MINUTE, 1, 3, 20L));
   }
 
   @Test
@@ -118,8 +119,7 @@ class AnomalyModelTest {
     // given a negative window
     // when a policy is built
     // then it fails
-    assertThrows(
-        IllegalArgumentException.class, () -> new AnomalyPolicy(Duration.ofMinutes(-1), 5, 3, 20L));
+    assertThrows(IllegalArgumentException.class, () -> new AnomalyPolicy(BACKWARDS, 5, 3, 20L));
   }
 
   @Test
@@ -127,8 +127,7 @@ class AnomalyModelTest {
     // given a threshold of zero
     // when a policy is built
     // then it fails
-    assertThrows(
-        IllegalArgumentException.class, () -> new AnomalyPolicy(Duration.ofMinutes(1), 5, 0, 20L));
+    assertThrows(IllegalArgumentException.class, () -> new AnomalyPolicy(ONE_MINUTE, 5, 0, 20L));
   }
 
   @Test
@@ -136,8 +135,7 @@ class AnomalyModelTest {
     // given a negative minimum
     // when a policy is built
     // then it fails
-    assertThrows(
-        IllegalArgumentException.class, () -> new AnomalyPolicy(Duration.ofMinutes(1), 5, 3, -1L));
+    assertThrows(IllegalArgumentException.class, () -> new AnomalyPolicy(ONE_MINUTE, 5, 3, -1L));
   }
 
   @Test

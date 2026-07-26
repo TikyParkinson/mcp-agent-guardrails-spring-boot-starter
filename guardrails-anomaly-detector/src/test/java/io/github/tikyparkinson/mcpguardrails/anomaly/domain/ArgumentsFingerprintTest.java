@@ -83,7 +83,7 @@ class ArgumentsFingerprintTest {
     // given the marker for a source that cannot supply a fingerprint
     // when asked whether it is known
     // then it is not, so the repetition heuristic can skip it
-    assertFalse(ArgumentsFingerprint.unknown().isKnown());
+    assertFalse(ArgumentsFingerprint.UNKNOWN.isKnown());
   }
 
   @Test
@@ -114,6 +114,7 @@ class ArgumentsFingerprintTest {
   void shouldFailWhenTheJvmCannotProvideTheDigest() {
     // given a runtime that does not offer SHA-256, unreachable on a compliant JVM but the only
     // way this record could ever fail to produce a fingerprint
+    Map<String, Object> arguments = Map.of("a", 1);
     try (MockedStatic<MessageDigest> digests = Mockito.mockStatic(MessageDigest.class)) {
       digests
           .when(() -> MessageDigest.getInstance("SHA-256"))
@@ -122,7 +123,7 @@ class ArgumentsFingerprintTest {
       // when fingerprinted
       // then it fails loudly instead of falling back to a weaker or empty fingerprint, which
       // would silently make every call look identical
-      assertThrows(IllegalStateException.class, () -> ArgumentsFingerprint.of(Map.of("a", 1)));
+      assertThrows(IllegalStateException.class, () -> ArgumentsFingerprint.of(arguments));
     }
   }
 

@@ -51,7 +51,7 @@ public final class DetectAnomalyService implements DetectAnomalyUseCase {
     Objects.requireNonNull(arguments, "arguments");
     Objects.requireNonNull(occurredAt, "occurredAt");
     ArgumentsFingerprint fingerprint = ArgumentsFingerprint.of(arguments);
-    historyPort.record(new InvocationRecord(agentId, toolName, fingerprint, occurredAt));
+    historyPort.append(new InvocationRecord(agentId, toolName, fingerprint, occurredAt));
     AgentHistory history = historyPort.historyOf(agentId, occurredAt.minus(policy.window()));
     return AnomalyAnalyzer.analyze(history, policy);
   }

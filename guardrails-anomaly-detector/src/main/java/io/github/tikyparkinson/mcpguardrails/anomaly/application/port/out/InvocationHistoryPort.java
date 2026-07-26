@@ -30,7 +30,7 @@ import java.time.Instant;
 public interface InvocationHistoryPort {
 
   /** Adds the invocation to the history. Must be safe under concurrency. */
-  void record(InvocationRecord record);
+  void append(InvocationRecord invocation);
 
   /**
    * The agent's history split at {@code windowStart}: what happened from that instant onwards

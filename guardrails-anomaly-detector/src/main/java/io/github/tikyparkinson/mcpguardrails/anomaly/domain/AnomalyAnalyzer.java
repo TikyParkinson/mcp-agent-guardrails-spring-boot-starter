@@ -50,13 +50,13 @@ public final class AnomalyAnalyzer {
       AgentHistory history, AnomalyPolicy policy) {
     Map<String, Integer> counts = new LinkedHashMap<>();
     Map<String, String> toolOfGroup = new LinkedHashMap<>();
-    for (InvocationRecord record : history.withinWindow()) {
-      if (!record.fingerprint().isKnown()) {
+    for (InvocationRecord invocation : history.withinWindow()) {
+      if (!invocation.fingerprint().isKnown()) {
         continue;
       }
-      String key = record.toolName() + '\u0000' + record.fingerprint().value();
+      String key = invocation.toolName() + '\u0000' + invocation.fingerprint().value();
       counts.merge(key, 1, Integer::sum);
-      toolOfGroup.putIfAbsent(key, record.toolName());
+      toolOfGroup.putIfAbsent(key, invocation.toolName());
     }
     return counts.entrySet().stream()
         .max(Map.Entry.comparingByValue())

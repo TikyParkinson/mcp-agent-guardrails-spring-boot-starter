@@ -43,7 +43,7 @@ Paquete `io.github.tikyparkinson.mcpguardrails.anomaly.domain`. JDK puro, autoco
  * de un Map inmutable no es estable entre JVMs).
  * Invariantes: value no blank.
  * Factories: ArgumentsFingerprint.of(Map<String,Object> arguments)
- *            ArgumentsFingerprint.unknown()  -> constante UNKNOWN
+ *            ArgumentsFingerprint.UNKNOWN     -> constante para fuentes sin huella
  * UNKNOWN representa una fuente de historial que no puede aportar la huella (ver Decisión 3);
  * la heurística de repetición ignora los registros marcados así.
  */
@@ -160,7 +160,7 @@ public interface DetectAnomalyUseCase {
 public interface InvocationHistoryPort {
 
   /** Añade la invocación al historial. Debe ser seguro bajo concurrencia. */
-  void record(InvocationRecord record);
+  void append(InvocationRecord invocation);
 
   /**
    * Historial del agente partido por {@code windowStart}: lo ocurrido desde ese instante
@@ -262,7 +262,7 @@ base de H2, que gana profundidad histórica y sobrevive a los reinicios. Cada he
 alimenta de la fuente que puede sostenerla.
 
 Si aun así alguien implementa el puente puro, debe **avisar al arrancar** de que H1 queda
-desactivada, en lugar de degradarse en silencio. Y `record(...)` sería un no-op en él: el
+desactivada, en lugar de degradarse en silencio. Y `append(...)` sería un no-op en él: el
 guardrail de auditoría ya escribe.
 
 ## 6. Configuración Spring Boot

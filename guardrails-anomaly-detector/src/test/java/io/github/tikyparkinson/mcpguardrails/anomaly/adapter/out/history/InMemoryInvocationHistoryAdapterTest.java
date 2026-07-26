@@ -37,6 +37,8 @@ class InMemoryInvocationHistoryAdapterTest {
 
   private static final Instant START = Instant.parse("2026-07-26T10:00:00Z");
   private static final Duration HALF_HOUR = Duration.ofMinutes(30);
+  private static final Duration ONE_MINUTE = Duration.ofMinutes(1);
+  private static final Duration BACKWARDS = Duration.ofMinutes(-1);
 
   @Test
   void shouldReturnAnEmptyHistoryForAnAgentNeverSeen() {
@@ -54,9 +56,9 @@ class InMemoryInvocationHistoryAdapterTest {
   void shouldSplitTheHistoryAtTheWindowStart() {
     // given three calls, one of them before the window
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 500);
-    adapter.record(record("old", 0));
-    adapter.record(record("recent", 100));
-    adapter.record(record("newer", 110));
+    adapter.append(invocationAt("old", 0));
+    adapter.append(invocationAt("recent", 100));
+    adapter.append(invocationAt("newer", 110));
 
     // when read from second 50 onwards
     AgentHistory history = adapter.historyOf("agent", START.plusSeconds(50));
@@ -71,7 +73,7 @@ class InMemoryInvocationHistoryAdapterTest {
   void shouldIncludeARecordLandingExactlyOnTheWindowStart() {
     // given a call at the very instant the window opens
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 500);
-    adapter.record(record("edge", 60));
+    adapter.append(invocationAt("edge", 60));
 
     // when read from that same instant
     AgentHistory history = adapter.historyOf("agent", START.plusSeconds(60));
@@ -85,7 +87,7 @@ class InMemoryInvocationHistoryAdapterTest {
     // given ten calls to ten different tools with room for only three records
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 3);
     for (int index = 0; index < 10; index++) {
-      adapter.record(record("tool" + index, index));
+      adapter.append(invocationAt("tool" + index, index));
     }
 
     // when the whole history is read as baseline
@@ -103,7 +105,7 @@ class InMemoryInvocationHistoryAdapterTest {
     // given ten calls with room for only three records
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 3);
     for (int index = 0; index < 10; index++) {
-      adapter.record(record("tool" + index, index));
+      adapter.append(invocationAt("tool" + index, index));
     }
 
     // when the window covers everything
@@ -117,9 +119,9 @@ class InMemoryInvocationHistoryAdapterTest {
   void shouldForgetRecordsOlderThanTheRetention() {
     // given a one minute retention and a call five minutes before the next one
     InMemoryInvocationHistoryAdapter adapter =
-        new InMemoryInvocationHistoryAdapter(Duration.ofMinutes(1), 500);
-    adapter.record(record("old", 0));
-    adapter.record(record("recent", 300));
+        new InMemoryInvocationHistoryAdapter(ONE_MINUTE, 500);
+    adapter.append(invocationAt("old", 0));
+    adapter.append(invocationAt("recent", 300));
 
     // when read
     AgentHistory history = adapter.historyOf("agent", START.plusSeconds(299));
@@ -132,12 +134,11 @@ class InMemoryInvocationHistoryAdapterTest {
   @Test
   void shouldForgetTheFoldedBaselineOnceItIsOlderThanTheRetention() {
     // given records folded into the baseline and then a long silence
-    InMemoryInvocationHistoryAdapter adapter =
-        new InMemoryInvocationHistoryAdapter(Duration.ofMinutes(1), 2);
-    adapter.record(record("a", 0));
-    adapter.record(record("b", 1));
-    adapter.record(record("c", 2));
-    adapter.record(record("later", 600));
+    InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(ONE_MINUTE, 2);
+    adapter.append(invocationAt("a", 0));
+    adapter.append(invocationAt("b", 1));
+    adapter.append(invocationAt("c", 2));
+    adapter.append(invocationAt("later", 600));
 
     // when read after the retention has passed
     AgentHistory history = adapter.historyOf("agent", START.plusSeconds(599));
@@ -152,8 +153,8 @@ class InMemoryInvocationHistoryAdapterTest {
   void shouldKeepAgentsApart() {
     // given two agents calling different tools
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 500);
-    adapter.record(new InvocationRecord("one", "search", fingerprint(1), START));
-    adapter.record(new InvocationRecord("two", "delete", fingerprint(2), START));
+    adapter.append(new InvocationRecord("one", "search", fingerprint(1), START));
+    adapter.append(new InvocationRecord("two", "delete", fingerprint(2), START));
 
     // when each is read
     // then neither sees the other's calls
@@ -165,7 +166,7 @@ class InMemoryInvocationHistoryAdapterTest {
   void shouldForgetEverythingWhenCleared() {
     // given a populated adapter
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 500);
-    adapter.record(record("search", 0));
+    adapter.append(invocationAt("search", 0));
 
     // when cleared
     adapter.clear();
@@ -191,10 +192,10 @@ class InMemoryInvocationHistoryAdapterTest {
             () -> {
               try {
                 for (int index = 0; index < perThread; index++) {
-                  adapter.record(
+                  adapter.append(
                       new InvocationRecord("agent", "tool" + id, fingerprint(index), START));
                 }
-              } catch (RuntimeException e) {
+              } catch (RuntimeException _) {
                 failures.incrementAndGet();
               } finally {
                 done.countDown();
@@ -215,9 +216,9 @@ class InMemoryInvocationHistoryAdapterTest {
   void shouldEmptyTheWindowWhenEveryRecordHasExpired() {
     // given an agent that went quiet long ago
     InMemoryInvocationHistoryAdapter adapter =
-        new InMemoryInvocationHistoryAdapter(Duration.ofMinutes(1), 500);
-    adapter.record(record("search", 0));
-    adapter.record(record("search", 5));
+        new InMemoryInvocationHistoryAdapter(ONE_MINUTE, 500);
+    adapter.append(invocationAt("search", 0));
+    adapter.append(invocationAt("search", 5));
 
     // when it is read hours later
     AgentHistory history = adapter.historyOf("agent", START.plusSeconds(10_000));
@@ -243,8 +244,7 @@ class InMemoryInvocationHistoryAdapterTest {
     // when the adapter is built
     // then it fails
     assertThrows(
-        IllegalArgumentException.class,
-        () -> new InMemoryInvocationHistoryAdapter(Duration.ofMinutes(-1), 500));
+        IllegalArgumentException.class, () -> new InMemoryInvocationHistoryAdapter(BACKWARDS, 500));
   }
 
   @Test
@@ -252,9 +252,9 @@ class InMemoryInvocationHistoryAdapterTest {
     // given a later call recorded before an earlier one, as two threads can produce
     InMemoryInvocationHistoryAdapter adapter =
         new InMemoryInvocationHistoryAdapter(Duration.ofMinutes(10), 1);
-    adapter.record(record("late", 300));
-    adapter.record(record("early", 100));
-    adapter.record(record("last", 310));
+    adapter.append(invocationAt("late", 300));
+    adapter.append(invocationAt("early", 100));
+    adapter.append(invocationAt("last", 310));
 
     // when read well after the earlier call but within retention of the later one
     AgentHistory history = adapter.historyOf("agent", START.plusSeconds(305));
@@ -288,7 +288,7 @@ class InMemoryInvocationHistoryAdapterTest {
     // when stored
     // then it fails
     InMemoryInvocationHistoryAdapter adapter = new InMemoryInvocationHistoryAdapter(HALF_HOUR, 500);
-    assertThrows(NullPointerException.class, () -> adapter.record(null));
+    assertThrows(NullPointerException.class, () -> adapter.append(null));
   }
 
   @Test
@@ -309,7 +309,7 @@ class InMemoryInvocationHistoryAdapterTest {
     assertThrows(NullPointerException.class, () -> adapter.historyOf(null, START));
   }
 
-  private static InvocationRecord record(String tool, int secondsIn) {
+  private static InvocationRecord invocationAt(String tool, int secondsIn) {
     return new InvocationRecord(
         "agent", tool, fingerprint(secondsIn), START.plusSeconds(secondsIn));
   }

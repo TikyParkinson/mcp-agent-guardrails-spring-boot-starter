@@ -68,7 +68,7 @@ class DetectAnomalyServiceTest {
     // then the call is stored first and only then analysed, so the invocation that reaches the
     // threshold is the one that gets stopped rather than the one after it
     InOrder order = inOrder(historyPort);
-    order.verify(historyPort).record(any());
+    order.verify(historyPort).append(any());
     order.verify(historyPort).historyOf(eq("agent"), any());
   }
 
@@ -91,7 +91,7 @@ class DetectAnomalyServiceTest {
 
     // then what reaches the history is a digest
     ArgumentCaptor<InvocationRecord> captor = ArgumentCaptor.forClass(InvocationRecord.class);
-    verify(historyPort).record(captor.capture());
+    verify(historyPort).append(captor.capture());
     assertEquals(
         ArgumentsFingerprint.of(Map.of("password", "hunter2")), captor.getValue().fingerprint());
   }

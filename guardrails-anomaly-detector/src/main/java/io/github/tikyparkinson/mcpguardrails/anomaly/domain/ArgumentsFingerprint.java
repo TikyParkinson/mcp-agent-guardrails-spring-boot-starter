@@ -49,11 +49,6 @@ public record ArgumentsFingerprint(String value) {
     return new ArgumentsFingerprint(HexFormat.of().formatHex(sha256().digest(canonical)));
   }
 
-  /** The fingerprint used when the source cannot supply one. */
-  public static ArgumentsFingerprint unknown() {
-    return UNKNOWN;
-  }
-
   /** False when this fingerprint carries no information about the arguments. */
   public boolean isKnown() {
     return !equals(UNKNOWN);

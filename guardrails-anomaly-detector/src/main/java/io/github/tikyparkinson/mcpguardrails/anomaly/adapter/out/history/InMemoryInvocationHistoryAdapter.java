@@ -75,7 +75,7 @@ public final class InMemoryInvocationHistoryAdapter implements InvocationHistory
   }
 
   @Override
-  public void record(InvocationRecord invocation) {
+  public void append(InvocationRecord invocation) {
     Objects.requireNonNull(invocation, "invocation");
     AgentWindow window =
         windows.computeIfAbsent(invocation.agentId(), unusedKey -> new AgentWindow());

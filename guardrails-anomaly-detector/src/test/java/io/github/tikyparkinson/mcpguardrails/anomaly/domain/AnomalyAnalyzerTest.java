@@ -103,7 +103,7 @@ class AnomalyAnalyzerTest {
     // given many repeated calls whose arguments the history source could not supply
     AgentHistory history =
         new AgentHistory(
-            repeat("search", ArgumentsFingerprint.unknown(), 20), KNOWN_TOOLS, LONG_BASELINE);
+            repeat("search", ArgumentsFingerprint.UNKNOWN, 20), KNOWN_TOOLS, LONG_BASELINE);
 
     // when analysed
     // then no loop is reported: treating unknown as a value would make every such record look
@@ -242,11 +242,11 @@ class AnomalyAnalyzerTest {
   @Test
   void shouldRejectAnalysisWithoutAPolicy() {
     // given no policy
+    AgentHistory history = new AgentHistory(List.of(), Set.of(), 0L);
+
     // when analysed
     // then it fails
-    assertThrows(
-        NullPointerException.class,
-        () -> AnomalyAnalyzer.analyze(new AgentHistory(List.of(), Set.of(), 0L), null));
+    assertThrows(NullPointerException.class, () -> AnomalyAnalyzer.analyze(history, null));
   }
 
   private static List<InvocationRecord> repeat(

@@ -45,6 +45,7 @@
     <module>guardrails-egress-control</module>
     <module>guardrails-anomaly-detector</module>
     <module>guardrails-approval-gate</module>
+    <module>guardrails-trifecta-correlator</module>
     <module>spring-boot-starter</module>
   </modules>
 

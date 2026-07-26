@@ -17,12 +17,17 @@ package io.github.tikyparkinson.mcpguardrails.core.adapter.in.mcp;
 
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.out.EscalationResolver;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ApprovedExecution;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Block;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ChainVerdict;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Escalate;
+import io.github.tikyparkinson.mcpguardrails.core.domain.EscalationOutcome;
 import io.github.tikyparkinson.mcpguardrails.core.domain.PassThrough;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Redact;
+import io.github.tikyparkinson.mcpguardrails.core.domain.RejectedExecution;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ResultVerdict;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ToolInvocationContext;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ToolName;
@@ -43,11 +48,12 @@ import java.util.function.BiFunction;
  * guardrail chain before the real tool runs, and its result by the outbound chain before it reaches
  * the agent.
  *
- * <p>{@code Allow} delegates to the original handler; {@code Deny} and {@code Escalate} return an
- * error {@link McpSchema.CallToolResult} without executing the tool ({@code Escalate} is handled
- * conservatively until a human-in-the-loop mechanism exists). On the way back, {@code PassThrough}
- * returns the result untouched, {@code Redact} rebuilds it with sanitized text, and {@code Block}
- * replaces it with an error.
+ * <p>{@code Allow} delegates to the original handler and {@code Deny} returns an error {@link
+ * McpSchema.CallToolResult} without executing the tool. {@code Escalate} is handed to the {@link
+ * EscalationResolver} when one is registered — which is how {@code guardrails-approval-gate} holds
+ * the invocation for a human — and otherwise returns an error, the behaviour of this handler before
+ * that SPI existed. On the way back, {@code PassThrough} returns the result untouched, {@code
+ * Redact} rebuilds it with sanitized text, and {@code Block} replaces it with an error.
  */
 public final class GuardedToolCallHandler
     implements BiFunction<
@@ -63,6 +69,7 @@ public final class GuardedToolCallHandler
   private final EvaluateToolResultUseCase resultUseCase;
   private final AgentIdResolver agentIdResolver;
   private final Clock clock;
+  private final EscalationResolver escalationResolver;
 
   public GuardedToolCallHandler(
       BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult>
@@ -80,23 +87,77 @@ public final class GuardedToolCallHandler
       EvaluateToolResultUseCase resultUseCase,
       AgentIdResolver agentIdResolver,
       Clock clock) {
+    this(delegate, useCase, resultUseCase, agentIdResolver, clock, null);
+  }
+
+  /**
+   * @param escalationResolver decides what an {@code Escalate} verdict actually does; {@code null}
+   *     keeps the historical behaviour of returning an error
+   */
+  public GuardedToolCallHandler(
+      BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult>
+          delegate,
+      EvaluateToolInvocationUseCase useCase,
+      EvaluateToolResultUseCase resultUseCase,
+      AgentIdResolver agentIdResolver,
+      Clock clock,
+      EscalationResolver escalationResolver) {
     this.delegate = Objects.requireNonNull(delegate, "delegate");
     this.useCase = Objects.requireNonNull(useCase, "useCase");
     this.resultUseCase = Objects.requireNonNull(resultUseCase, "resultUseCase");
     this.agentIdResolver = Objects.requireNonNull(agentIdResolver, "agentIdResolver");
     this.clock = Objects.requireNonNull(clock, "clock");
+    this.escalationResolver = escalationResolver;
   }
 
   @Override
   public McpSchema.CallToolResult apply(
       McpSyncServerExchange exchange, McpSchema.CallToolRequest request) {
     ToolInvocationContext context = toContext(exchange, request);
-    return switch (useCase.evaluate(context).finalDecision()) {
+    ChainVerdict verdict = useCase.evaluate(context);
+    return switch (verdict.finalDecision()) {
       case Allow _ -> guardedDelegate(exchange, request, context);
       case Deny(String reason) -> errorResult("Tool call denied by guardrails: " + reason);
       case Escalate(String reason) ->
-          errorResult("Tool call requires approval (escalated by guardrails): " + reason);
+          resolveEscalation(exchange, request, context, verdict, reason);
     };
+  }
+
+  /**
+   * Asks the resolver what to do with an escalated invocation.
+   *
+   * <p>An approved execution goes through {@link #guardedDelegate}, not straight to the delegate:
+   * approving that a tool runs is not approving that its output is seen raw, so the outbound chain
+   * still applies.
+   */
+  private McpSchema.CallToolResult resolveEscalation(
+      McpSyncServerExchange exchange,
+      McpSchema.CallToolRequest request,
+      ToolInvocationContext context,
+      ChainVerdict verdict,
+      String reason) {
+    if (escalationResolver == null) {
+      return errorResult("Tool call requires approval (escalated by guardrails): " + reason);
+    }
+    return switch (safeResolve(context, verdict)) {
+      case ApprovedExecution _ -> guardedDelegate(exchange, request, context);
+      case RejectedExecution(String why) -> errorResult("Tool call not approved: " + why);
+    };
+  }
+
+  /**
+   * Never lets a failing resolver turn into permission: an approval channel that is down or
+   * misbehaving must close the door, not open it. Same rule as {@code GuardrailChain.safeEvaluate}.
+   */
+  private EscalationOutcome safeResolve(ToolInvocationContext context, ChainVerdict verdict) {
+    try {
+      EscalationOutcome outcome = escalationResolver.resolve(context, verdict);
+      return outcome == null
+          ? new RejectedExecution("approval resolver returned no outcome")
+          : outcome;
+    } catch (RuntimeException e) {
+      return new RejectedExecution("approval resolver failed: " + e.getClass().getSimpleName());
+    }
   }
 
   private McpSchema.CallToolResult guardedDelegate(

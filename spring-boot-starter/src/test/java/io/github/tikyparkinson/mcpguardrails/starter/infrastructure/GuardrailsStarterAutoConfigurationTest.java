@@ -18,6 +18,7 @@ package io.github.tikyparkinson.mcpguardrails.starter.infrastructure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -195,7 +196,7 @@ class GuardrailsStarterAutoConfigurationTest {
         .run(
             context -> {
               assertTrue(context.containsBean("evaluateToolInvocationUseCase"));
-              assertTrue(context.getBean(RecordAuditEventUseCase.class) != null);
+              assertNotNull(context.getBean(RecordAuditEventUseCase.class));
               assertFalse(context.containsBean("auditGuardrail"));
               assertFalse(context.containsBean("rateLimitGuardrail"));
             });

@@ -166,7 +166,8 @@ Expone `toPolicy()` → `RateLimitPolicy` para el starter.
 ## 7. Dependencias Maven propuestas
 
 Sin artefactos nuevos: idéntico patrón a guardrails-audit (todas las versiones ya verificadas
-2026-07-24: Testcontainers BOM 2.0.5 en el parent, driver Postgres 42.7.11 vía BOM de Boot).
+2026-07-24: Testcontainers BOM 2.0.5 en el parent; el driver Postgres se fija en el pom raíz a
+42.7.13 desde 2026-07-26, por delante del BOM de Boot, que resuelve la 42.7.11 vulnerable).
 
 | Dependencia | Scope | Justificación |
 |---|---|---|
@@ -178,7 +179,7 @@ Sin artefactos nuevos: idéntico patrón a guardrails-audit (todas las versiones
 | `org.mockito:mockito-core` | test | Mocks del puerto store y del bus en tests unitarios. |
 | `org.testcontainers:testcontainers-postgresql` (BOM TC) | test | Contenedor PostgreSQL para el test del adaptador JDBC (obligatorio §8). |
 | `org.testcontainers:testcontainers-junit-jupiter` (BOM TC) | test | Integración `@Testcontainers` con JUnit. |
-| `org.postgresql:postgresql` (BOM Boot) | test | Driver JDBC real para el test con Testcontainers. |
+| `org.postgresql:postgresql` (fijado en el pom raíz: 42.7.13) | test | Driver JDBC real para el test con Testcontainers. Se fija por delante del BOM de Boot por CVE-2026-54291 (ver spec de audit §7). |
 
 ## 8. Diagrama del hexágono
 

@@ -59,6 +59,13 @@ public final class GuardedToolCallHandler
     implements BiFunction<
         McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> {
 
+  /**
+   * Key under which {@link ToolInvocationContext#metadata()} carries the MCP transport session,
+   * when the transport provides one. Public because it is the contract: a consumer writing the
+   * literal itself would turn a typo into a silent miss.
+   */
+  public static final String SESSION_ID = "mcp.sessionId";
+
   private static final EvaluateToolResultUseCase NO_OUTBOUND_GUARDRAILS =
       context -> new ResultVerdict(new PassThrough(), List.of());
 
@@ -181,7 +188,29 @@ public final class GuardedToolCallHandler
         new ToolName(request.name()),
         clock.instant(),
         arguments,
-        Map.of());
+        metadataOf(exchange));
+  }
+
+  /**
+   * Carries the MCP transport session, when there is one, so guardrails that reason across
+   * invocations can tell one connection from another. The agent identifier cannot do that job: it
+   * is the client product's name, shared by everyone using it.
+   *
+   * <p>An absent session is a map without the key rather than a key with an empty value, so a
+   * consumer that finds {@link #SESSION_ID} can trust there is a session. A transport that throws
+   * is treated as one that has none: it is implemented outside this project, and no guardrail
+   * should fail an invocation over an optional piece of context.
+   */
+  private static Map<String, Object> metadataOf(McpSyncServerExchange exchange) {
+    if (exchange == null) {
+      return Map.of();
+    }
+    try {
+      String sessionId = exchange.sessionId();
+      return sessionId == null || sessionId.isBlank() ? Map.of() : Map.of(SESSION_ID, sessionId);
+    } catch (RuntimeException _) {
+      return Map.of();
+    }
   }
 
   private static ToolResultContext toResultContext(

@@ -36,6 +36,7 @@ Our primary goals are:
 | [guardrails-egress-control](guardrails-egress-control) | Allowlist of outbound destinations for tools with network capability, empty by default |
 | [guardrails-anomaly-detector](guardrails-anomaly-detector) | Escalates an agent whose recent history looks like a loop or a sweep across tools it never used |
 | [guardrails-approval-gate](guardrails-approval-gate) | Holds an escalated invocation until a person approves or rejects it; silence denies |
+| [guardrails-trifecta-correlator](guardrails-trifecta-correlator) | Escalates a session where private data, untrusted content and outbound communication all meet |
 | [spring-boot-starter](spring-boot-starter) | Auto-configuration that assembles everything — the artifact you import |
 
 ## Installation and Getting Started

@@ -175,7 +175,7 @@ Testcontainers 2.x renombró artefactos: `testcontainers-postgresql` y
 | `org.mockito:mockito-core` (5.23.0) | test | Mocks del puerto `out` en tests del caso de uso. |
 | `org.testcontainers:testcontainers-postgresql` (BOM TC) | test | Contenedor PostgreSQL para el test de integración del adaptador JDBC (obligatorio §8). |
 | `org.testcontainers:testcontainers-junit-jupiter` (BOM TC) | test | Integración `@Testcontainers`/`@Container` con JUnit. |
-| `org.postgresql:postgresql` (BOM Boot: 42.7.11) | test | Driver JDBC real para el test con Testcontainers. |
+| `org.postgresql:postgresql` (fijado en el pom raíz: 42.7.13) | test | Driver JDBC real para el test con Testcontainers. Se fija por delante del BOM de Boot, que resuelve 42.7.11: esa versión está afectada por CVE-2026-54291 (HIGH), una degradación silenciosa del channel binding corregida en 42.7.12. |
 
 Ninguna otra. Nota: el test de Testcontainers usa `JdbcClient` sobre un `DataSource` simple
 (`PGSimpleDataSource` del driver), sin `@SpringBootTest`.

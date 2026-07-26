@@ -1,6 +1,6 @@
 # DONE — guardrails-egress-control
 
-> Módulo 9 según ARCHITECTURE.md §6. Aprobado por `code-reviewer` en la segunda pasada.
+> Módulo 9 según ARCHITECTURE.md §6. Aprobado por `code-reviewer` en la tercera pasada.
 > Fecha: 2026-07-26. Rama: `feature/guardrails-egress-control`.
 > Prerequisito cumplido: `guardrails-credential-leak-guard-DONE.md` aprobado.
 
@@ -10,16 +10,13 @@
 
 | Métrica | Resultado |
 |---|---|
-| Tests | 132 |
-| Líneas | 193/193 — **100%** |
-| Ramas | 90/90 — **100%** |
+| Tests | 134 |
+| Líneas | 196/196 — **100%** |
+| Ramas | 94/94 — **100%** |
 | Checkstyle | 0 violaciones |
 | Spotless | limpio |
 
-Ninguna clase queda incompleta: `DestinationExtractor`, `Destination`, `AllowedDestination`,
-`EgressPolicy`, `EgressTool`, `ArgumentPathResolver`, `CheckEgressDestinationService`,
-`EgressGuardrail`, `GuardrailsEgressProperties` e `InMemoryEgressPolicyAdapter` están al 100% en
-líneas y ramas.
+Ninguna clase queda incompleta.
 
 ## Checklist (ARCHITECTURE.md §9)
 
@@ -60,6 +57,27 @@ por el checklist de "sin `return null` en dominio". `domain-builder` cambió la 
 `Optional<String>` con `Optional.ofNullable(...)`, de modo que la firma expresa lo que antes solo
 decía el Javadoc del JDK. Los 132 tests siguieron en verde **sin modificar ninguno**, y la
 cobertura se mantuvo en 100%/100%.
+
+## Bug encontrado por SonarCloud en la PR #8 y su corrección
+
+`java:S5998` (MAJOR, **Bug**) sobre el patrón `HOST` de `DestinationExtractor`: anidaba una
+repetición dentro de otra (`[a-z0-9](…)?(?:\.[a-z0-9](…)?)*`), de modo que el motor de regex
+recursaba una vez por etiqueta. Verificado ejecutándolo: **1000 etiquetas (2 KB de entrada)
+bastaban para provocar un `StackOverflowError`**.
+
+La gravedad venía de la cadena completa: el valor procede de un argumento de tool —entrada
+controlada por el atacante—, y `StackOverflowError` es un `Error`, no un `RuntimeException`, así
+que el `catch` de `GuardrailChain.safeEvaluate` **no lo intercepta**: se propaga y tumba el hilo
+de la petición. Un guardrail que existe para contener al agente se convertía en su vector de DoS.
+
+Corregido validando **etiqueta a etiqueta** tras `split("\\.")`, con un patrón `LABEL` sin
+anidamiento — que es literalmente lo que el spec §2 describe en la regla 3. Comportamiento
+idéntico, sin recursión: 200 000 etiquetas (400 KB) se resuelven en 29 ms. Dos tests nuevos
+(`shouldSurviveAHostWithThousandsOfLabelsWhenExtracting` y
+`shouldSurviveAVeryLongSingleLabelWhenExtracting`) blindan la regresión.
+
+En la misma pasada se corrigieron `java:S7467` (variable de `catch` sin usar ⇒ patrón sin nombre)
+y `java:S1612` (lambda sustituible por referencia a método en un test).
 
 ## Hallazgos previos, ya resueltos durante el ciclo
 

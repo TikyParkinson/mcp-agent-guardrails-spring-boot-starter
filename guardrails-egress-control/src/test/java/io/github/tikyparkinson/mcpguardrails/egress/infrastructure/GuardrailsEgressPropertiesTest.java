@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.tikyparkinson.mcpguardrails.egress.adapter.in.chain.ViolationAction;
 import io.github.tikyparkinson.mcpguardrails.egress.domain.Destination;
 import io.github.tikyparkinson.mcpguardrails.egress.domain.EgressPolicy;
+import io.github.tikyparkinson.mcpguardrails.egress.domain.EgressTool;
 import io.github.tikyparkinson.mcpguardrails.egress.infrastructure.GuardrailsEgressProperties.ToolConfig;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +73,7 @@ class GuardrailsEgressPropertiesTest {
     // then
     assertEquals(
         List.of("http_get", "send_email"),
-        policy.tools().stream().map(tool -> tool.toolName()).toList());
+        policy.tools().stream().map(EgressTool::toolName).toList());
   }
 
   @Test

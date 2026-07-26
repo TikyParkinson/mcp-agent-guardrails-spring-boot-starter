@@ -146,6 +146,26 @@ class DestinationExtractorTest {
   }
 
   @Test
+  void shouldSurviveAHostWithThousandsOfLabelsWhenExtracting() {
+    // given: argument values are attacker-controlled, and a nested repetition would make the
+    // regex engine recurse once per label until it raises a StackOverflowError — an Error the
+    // guardrail chain does not catch
+    String many = "a.".repeat(20_000) + "!";
+
+    // when / then
+    assertInstanceOf(NotDeterminable.class, DestinationExtractor.extract(many));
+  }
+
+  @Test
+  void shouldSurviveAVeryLongSingleLabelWhenExtracting() {
+    // given
+    String long_ = "a".repeat(100_000) + "!";
+
+    // when / then
+    assertInstanceOf(NotDeterminable.class, DestinationExtractor.extract(long_));
+  }
+
+  @Test
   void shouldRejectNullDestinationWhenExtractedConstructed() {
     // given / when / then
     assertThrows(NullPointerException.class, () -> new Extracted(null));

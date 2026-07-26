@@ -33,8 +33,15 @@ import java.util.regex.Pattern;
  */
 public final class DestinationExtractor {
 
-  private static final Pattern HOST =
-      Pattern.compile("[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*");
+  /**
+   * One domain label. Hosts are validated label by label instead of with a single expression
+   * covering the whole name: nesting a repetition inside another makes the regex engine recurse
+   * once per label, and an argument is attacker-controlled input, so a couple of kilobytes would be
+   * enough to raise a {@code StackOverflowError} — an {@code Error} that the guardrail chain does
+   * not catch.
+   */
+  private static final Pattern LABEL = Pattern.compile("[a-z0-9](?:[a-z0-9-]*[a-z0-9])?");
+
   private static final Pattern IPV6 = Pattern.compile("\\[?[0-9a-f:]+]?");
 
   private DestinationExtractor() {}
@@ -68,7 +75,7 @@ public final class DestinationExtractor {
   private static Optional<String> hostOfUri(String candidate) {
     try {
       return Optional.ofNullable(new URI(candidate).getHost());
-    } catch (URISyntaxException e) {
+    } catch (URISyntaxException _) {
       return Optional.empty();
     }
   }
@@ -77,6 +84,15 @@ public final class DestinationExtractor {
     if (normalized.isBlank()) {
       return false;
     }
-    return HOST.matcher(normalized).matches() || IPV6.matcher(normalized).matches();
+    return isHostName(normalized) || IPV6.matcher(normalized).matches();
+  }
+
+  private static boolean isHostName(String candidate) {
+    for (String label : candidate.split("\\.", -1)) {
+      if (!LABEL.matcher(label).matches()) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -70,7 +70,7 @@ mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, p
 ├── guardrails-tool-integrity/          ✅ done — anti tool-poisoning: SHA-256 (TOFU) baseline of each tool definition
 ├── guardrails-credential-leak-guard/   ✅ done — detects credentials in arguments and redacts the ones a tool returns
 ├── guardrails-egress-control/          ✅ done — allowlist of outbound destinations (HTTP, email, messaging) per tool, empty by default
-├── guardrails-anomaly-detector/        🚧 new — detects loops and anomalous repeated invocations, using the audit/ratelimit history
+├── guardrails-anomaly-detector/        ✅ done — escalates an agent looping on identical calls or sweeping across tools it never used
 ├── guardrails-approval-gate/           🚧 new — implements the actual execution of an `Escalate` decision: pauses the action until human approval
 ├── guardrails-trifecta-correlator/     🚧 new — correlates, at session level, whether the 3 signals of the "lethal trifecta" are active at once
 └── spring-boot-starter/                ✅ done — auto-configuration that assembles everything
@@ -104,6 +104,28 @@ execution of an `Escalate`). Extending it is legitimate, under these conditions:
 
 The same applies to `spring-boot-starter` when it has to wire a new extension point.
 
+### 5.2 Guardrails that need state across invocations
+
+The escape hatch above — reading the decision trace exposed by `guardrails-core` — covers the
+invocation in flight only. Some guardrails have to reason about what happened across many
+invocations: `anomaly-detector` compares a call against the agent's recent history,
+`approval-gate` has to remember a pending approval, `trifecta-correlator` accumulates signals over
+a session. For those, the rule in §5 still holds, and the way to satisfy it is:
+
+- **The consuming module declares its own outbound port**, in its own vocabulary, describing
+  exactly the question its logic asks and nothing more. It does not borrow a port from another
+  guardrail even when one looks close enough.
+- **The default adapter is self-sufficient**, so the module works on its own with no wiring.
+- **A bridge onto another module's store is an adapter, and it lives in `spring-boot-starter`**,
+  which legitimately depends on every module. It is never a Maven dependency between guardrails.
+- **A bridge that cannot answer the whole question must say so at startup**, not degrade quietly.
+  A partially-fed heuristic that reports nothing is indistinguishable from a clean system, which
+  is worse than not having the heuristic at all.
+
+Note that a store looking similar is not the same as a store being usable: `guardrails-audit`
+deliberately keeps no arguments, so a bridge built on it cannot answer any question about what was
+sent. Check the shape of the data, not the name of the port.
+
 ## 6. Build order
 
 **Released (do not rebuild):** `guardrails-core` → `guardrails-audit` → `guardrails-authz` →
@@ -119,9 +141,12 @@ Maven Central). These modules are not rebuilt from scratch; `guardrails-core` an
    invocation before the tool ran, so the result could not be inspected or redacted. The
    extension `guardrails-core-outbound-spi` was specified and built first, in the same branch.
 9. `guardrails-egress-control` — ✅ done. No new dependencies.
-10. `guardrails-anomaly-detector` — depends on historical data already exposed by
-    `guardrails-audit` and `guardrails-ratelimit` (both done), which is why it cannot come before
-    them even though they are already built.
+10. `guardrails-anomaly-detector` — ✅ done. Reasons about an agent's recent history, so it comes
+    after the modules that make history worth having. It declares its own `InvocationHistoryPort`
+    under §5.2 rather than depending on `guardrails-audit` or `guardrails-ratelimit`: the rate
+    limit store is a counter and does not record what was invoked, and the audit log keeps no
+    arguments, so neither can answer what the heuristics ask. A bridge onto either belongs in
+    `spring-boot-starter`.
 11. `guardrails-approval-gate` — implements what happens when the chain returns `Escalate`; it
     must exist before the correlator because the correlator invokes it.
 12. `guardrails-trifecta-correlator` — the most complex one: reads the trace of `authz`,
@@ -179,3 +204,21 @@ A `guardrails-*` module is finished only if `code-reviewer` confirms **all** of 
 - [ ] No unjustified dependencies in the `pom.xml`
 - [ ] Apache 2.0 license header present in every `.java` file
 - [ ] The module README explains the pluggable port and how to replace the default adapter
+
+## 10. Using Graphify
+
+If the Graphify hook is active in this repo, agents should use it as follows:
+
+- **Before writing new code** (`domain-builder`, `adapter-builder`): query
+  `/graphify query <ClassOrPort>` to check whether something similar already exists in
+  `guardrails-core` or in already-finished modules, instead of assuming or blindly re-reading
+  entire files.
+- **`code-reviewer`**: for the checklist item "no `guardrails-*` module imports another
+  `guardrails-*` module" (section 5), use `/graphify query <module>` to see its real
+  dependencies in the graph instead of relying only on `grep` — the graph catches transitive
+  imports that a plain grep can miss.
+- **`issue-fixer`**: before touching a class to fix a finding, run `/graphify query <Class>` to
+  see every call site affected by the change.
+- **When finishing any module** (all agents, last step): run `/graphify update` — the index
+  does not refresh itself, so if you skip this, the next agent will be querying a stale graph
+  and may make decisions based on outdated information.

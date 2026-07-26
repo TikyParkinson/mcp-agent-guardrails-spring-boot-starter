@@ -43,3 +43,6 @@ Desktop.ini
 # --- Logs & temp ---
 *.log
 *.tmp
+
+# Graphify
+graphify-out/

@@ -72,7 +72,7 @@ mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, p
 ├── guardrails-egress-control/          ✅ done — allowlist of outbound destinations (HTTP, email, messaging) per tool, empty by default
 ├── guardrails-anomaly-detector/        ✅ done — escalates an agent looping on identical calls or sweeping across tools it never used
 ├── guardrails-approval-gate/           ✅ done — implements the actual execution of an `Escalate` decision: pauses the action until human approval
-├── guardrails-trifecta-correlator/     🚧 new — correlates, at session level, whether the 3 signals of the "lethal trifecta" are active at once
+├── guardrails-trifecta-correlator/     ✅ done — correlates, at session level, whether the 3 signals of the "lethal trifecta" are active at once
 └── spring-boot-starter/                ✅ done — auto-configuration that assembles everything
 ```
 
@@ -80,9 +80,16 @@ Every `guardrails-*` module internally follows the `domain / application / adapt
 adapter-out` subdivision. `spring-boot-starter` only contains `infrastructure`
 (auto-configuration) and depends on the modules above. None of them imports another
 `guardrails-*` module as a Maven dependency: if a guardrail needs to know what the others
-decided (the `trifecta-correlator` case), it does so by reading the decision trace already
-exposed by `guardrails-core` for the invocation in flight, never by importing the other
-guardrail's module.
+decided (the `approval-gate` case, which receives the whole `ChainVerdict` through the core
+escalation SPI), it does so by reading the decision trace already exposed by `guardrails-core`,
+never by importing the other guardrail's module.
+
+Note that needing to know what the others *decided* is a different problem from needing to know
+what a tool *can do*. A verdict says whether this invocation was permitted, not what the tool
+touches — `egress-control` returns `Allow` both for a tool with no network access and for one
+reaching an allowed destination, which are opposites to anything correlating capabilities. A
+guardrail in that position takes the capabilities declared by the operator, as
+`trifecta-correlator` does, rather than inferring them from verdicts.
 
 ### 5.1 Evolution of `guardrails-core`
 
@@ -153,10 +160,14 @@ Maven Central). These modules are not rebuilt from scratch; `guardrails-core` an
     keeps the first escalation it finds, so no guardrail running afterwards could turn an approval
     back into `Allow`. The extension `guardrails-core-escalation-spi` was specified and built
     first, in the same branch.
-12. `guardrails-trifecta-correlator` — the most complex one: reads the trace of `authz`,
-    `injection-guard` and `egress-control` for that invocation/session and, if it detects the 3
-    conditions active at once, forces an `Escalate` decision that `approval-gate` resolves. It
-    goes last because it conceptually depends on 9, 10 and 11 already existing.
+12. `guardrails-trifecta-correlator` — ✅ done. Tracks, per session, whether private data access,
+    untrusted content and outbound communication have all been touched, and forces an `Escalate`
+    that `approval-gate` resolves. It goes last because it depends on 11 existing to be worth
+    anything. The three legs are **declared by the operator**, not read from the decision trace:
+    a verdict says whether an invocation was permitted, not what the tool touches (see §5).
+    Required the core session metadata extension (§5.1) so a guardrail can tell one MCP
+    connection from another; the agent identifier is the client product's name and is shared by
+    everyone using it.
 
 A new module is not started until the previous one has gone through all 5 agents
 (spec → domain → adapter → test → review) and `code-reviewer` has approved it.

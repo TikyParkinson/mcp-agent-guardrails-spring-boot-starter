@@ -159,10 +159,10 @@ class DestinationExtractorTest {
   @Test
   void shouldSurviveAVeryLongSingleLabelWhenExtracting() {
     // given
-    String long_ = "a".repeat(100_000) + "!";
+    String hostileLabel = "a".repeat(100_000) + "!";
 
     // when / then
-    assertInstanceOf(NotDeterminable.class, DestinationExtractor.extract(long_));
+    assertInstanceOf(NotDeterminable.class, DestinationExtractor.extract(hostileLabel));
   }
 
   @Test

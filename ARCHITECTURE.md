@@ -71,7 +71,7 @@ mcp-agent-guardrails-spring-boot-starter/                 (pom, packaging=pom, p
 ├── guardrails-credential-leak-guard/   ✅ done — detects credentials in arguments and redacts the ones a tool returns
 ├── guardrails-egress-control/          ✅ done — allowlist of outbound destinations (HTTP, email, messaging) per tool, empty by default
 ├── guardrails-anomaly-detector/        ✅ done — escalates an agent looping on identical calls or sweeping across tools it never used
-├── guardrails-approval-gate/           🚧 new — implements the actual execution of an `Escalate` decision: pauses the action until human approval
+├── guardrails-approval-gate/           ✅ done — implements the actual execution of an `Escalate` decision: pauses the action until human approval
 ├── guardrails-trifecta-correlator/     🚧 new — correlates, at session level, whether the 3 signals of the "lethal trifecta" are active at once
 └── spring-boot-starter/                ✅ done — auto-configuration that assembles everything
 ```
@@ -147,8 +147,12 @@ Maven Central). These modules are not rebuilt from scratch; `guardrails-core` an
     limit store is a counter and does not record what was invoked, and the audit log keeps no
     arguments, so neither can answer what the heuristics ask. A bridge onto either belongs in
     `spring-boot-starter`.
-11. `guardrails-approval-gate` — implements what happens when the chain returns `Escalate`; it
-    must exist before the correlator because the correlator invokes it.
+11. `guardrails-approval-gate` — ✅ done. Implements what happens when the chain returns
+    `Escalate`; it must exist before the correlator because the correlator invokes it. Required
+    the core escalation SPI (§5.1): `Escalate` had no execution point, and the decision combiner
+    keeps the first escalation it finds, so no guardrail running afterwards could turn an approval
+    back into `Allow`. The extension `guardrails-core-escalation-spi` was specified and built
+    first, in the same branch.
 12. `guardrails-trifecta-correlator` — the most complex one: reads the trace of `authz`,
     `injection-guard` and `egress-control` for that invocation/session and, if it detects the 3
     conditions active at once, forces an `Escalate` decision that `approval-gate` resolves. It

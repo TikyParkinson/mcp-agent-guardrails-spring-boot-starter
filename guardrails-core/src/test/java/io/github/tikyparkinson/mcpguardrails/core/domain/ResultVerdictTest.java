@@ -48,14 +48,20 @@ class ResultVerdictTest {
 
   @Test
   void shouldRejectNullEvaluationsWhenConstructed() {
-    // given / when / then
-    assertThrows(NullPointerException.class, () -> new ResultVerdict(new PassThrough(), null));
+    // given
+    PassThrough decision = new PassThrough();
+
+    // when / then
+    assertThrows(NullPointerException.class, () -> new ResultVerdict(decision, null));
   }
 
   @Test
   void shouldRejectNullGuardrailNameWhenEvaluationConstructed() {
-    // given / when / then
-    assertThrows(NullPointerException.class, () -> new ResultEvaluation(null, new PassThrough()));
+    // given
+    PassThrough decision = new PassThrough();
+
+    // when / then
+    assertThrows(NullPointerException.class, () -> new ResultEvaluation(null, decision));
   }
 
   @Test

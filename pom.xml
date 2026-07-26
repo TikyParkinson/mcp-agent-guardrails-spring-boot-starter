@@ -43,6 +43,7 @@
     <module>guardrails-tool-integrity</module>
     <module>guardrails-credential-leak-guard</module>
     <module>guardrails-egress-control</module>
+    <module>guardrails-anomaly-detector</module>
     <module>spring-boot-starter</module>
   </modules>
 

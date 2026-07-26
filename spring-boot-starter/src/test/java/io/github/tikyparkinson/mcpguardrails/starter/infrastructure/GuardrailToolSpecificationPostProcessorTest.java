@@ -24,8 +24,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.tikyparkinson.mcpguardrails.core.adapter.in.mcp.AgentIdResolver;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ChainVerdict;
+import io.github.tikyparkinson.mcpguardrails.core.domain.PassThrough;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ResultVerdict;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import java.time.Clock;
 import java.util.List;
@@ -36,11 +39,16 @@ class GuardrailToolSpecificationPostProcessorTest {
 
   private final EvaluateToolInvocationUseCase useCase =
       context -> new ChainVerdict(new Allow(), List.of());
+  private final EvaluateToolResultUseCase resultUseCase =
+      context -> new ResultVerdict(new PassThrough(), List.of());
   private final GuardrailToolSpecificationPostProcessor processor =
       new GuardrailToolSpecificationPostProcessor(
           provider(useCase),
+          provider(resultUseCase),
           provider(AgentIdResolver.clientInfoName()),
-          provider(Clock.systemUTC()));
+          provider(Clock.systemUTC()),
+          provider(null),
+          provider(null));
 
   @Test
   void shouldDecorateSingleToolSpecificationWhenBeanMatches() {
@@ -119,6 +127,13 @@ class GuardrailToolSpecificationPostProcessorTest {
   private static <T> ObjectProvider<T> provider(T instance) {
     ObjectProvider<T> provider = mock(ObjectProvider.class);
     when(provider.getObject()).thenReturn(instance);
+    when(provider.getIfAvailable()).thenReturn(instance);
+    when(provider.getIfAvailable(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(
+            invocation -> {
+              java.util.function.Supplier<T> fallback = invocation.getArgument(0);
+              return instance != null ? instance : fallback.get();
+            });
     return provider;
   }
 }

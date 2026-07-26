@@ -121,15 +121,16 @@ class InMemoryApprovalRequestAdapterTest {
     adapter.submit(request);
     AtomicReference<Optional<ApprovalDecision>> seen = new AtomicReference<>();
     CountDownLatch waiterDone = new CountDownLatch(1);
-    Thread.ofVirtual()
-        .start(
-            () -> {
-              seen.set(adapter.awaitDecision(request.id(), LONG_WAIT));
-              waiterDone.countDown();
-            });
+    Thread waiter =
+        Thread.ofVirtual()
+            .start(
+                () -> {
+                  seen.set(adapter.awaitDecision(request.id(), LONG_WAIT));
+                  waiterDone.countDown();
+                });
 
     // when a person decides
-    Thread.sleep(50);
+    awaitBlocked(waiter);
     adapter.resolve(request.id(), new Approved("alice"));
 
     // then the waiter wakes with that decision instead of sitting out the full deadline
@@ -267,7 +268,7 @@ class InMemoryApprovalRequestAdapterTest {
                   if (adapter.submit(requestFrom(AGENT))) {
                     admitted.incrementAndGet();
                   }
-                } catch (InterruptedException e) {
+                } catch (InterruptedException _) {
                   Thread.currentThread().interrupt();
                 } finally {
                   finished.countDown();
@@ -334,7 +335,7 @@ class InMemoryApprovalRequestAdapterTest {
                 });
 
     // when the server shuts the thread down
-    Thread.sleep(100);
+    awaitBlocked(waiter);
     waiter.interrupt();
 
     // then it stops waiting with no decision, and leaves the interrupt flag set so whoever owns
@@ -449,7 +450,8 @@ class InMemoryApprovalRequestAdapterTest {
     // when a decision is recorded
     // then it fails
     InMemoryApprovalRequestAdapter adapter = new InMemoryApprovalRequestAdapter(5, 5);
-    assertThrows(NullPointerException.class, () -> adapter.resolve(null, new Approved("alice")));
+    Approved decision = new Approved("alice");
+    assertThrows(NullPointerException.class, () -> adapter.resolve(null, decision));
   }
 
   @Test
@@ -460,6 +462,19 @@ class InMemoryApprovalRequestAdapterTest {
     InMemoryApprovalRequestAdapter adapter = new InMemoryApprovalRequestAdapter(5, 5);
     ApprovalId id = ApprovalId.newId();
     assertThrows(NullPointerException.class, () -> adapter.resolve(id, null));
+  }
+
+  /**
+   * Blocks until the given thread is parked inside the wait, rather than guessing with a sleep: the
+   * point of both tests is what happens to a thread that is already waiting.
+   */
+  private static void awaitBlocked(Thread thread) {
+    long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+    while (thread.getState() != Thread.State.WAITING
+        && thread.getState() != Thread.State.TIMED_WAITING
+        && System.nanoTime() < deadline) {
+      Thread.onSpinWait();
+    }
   }
 
   private static ApprovalRequest requestFrom(String agentId) {

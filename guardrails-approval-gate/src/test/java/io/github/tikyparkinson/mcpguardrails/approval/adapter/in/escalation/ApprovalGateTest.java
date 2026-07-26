@@ -134,21 +134,23 @@ class ApprovalGateTest {
   void shouldFailWhenReachedWithAnAllowedVerdict() {
     // given a verdict that never should have got here
     ChainVerdict allowed = new ChainVerdict(new Allow(), List.of());
+    ToolInvocationContext context = context();
 
     // when the gate is asked to resolve it
     // then it fails loudly: a resolver is only consulted on an escalation, so anything else means
     // the handler is miswired, and inventing a motive for a person to read would hide that
-    assertThrows(IllegalArgumentException.class, () -> gate.resolve(context(), allowed));
+    assertThrows(IllegalArgumentException.class, () -> gate.resolve(context, allowed));
   }
 
   @Test
   void shouldFailWhenReachedWithADeniedVerdict() {
     // given a denied verdict
     ChainVerdict denied = new ChainVerdict(new Deny("blocked"), List.of());
+    ToolInvocationContext context = context();
 
     // when the gate is asked to resolve it
     // then it fails rather than asking a person to approve something already denied
-    assertThrows(IllegalArgumentException.class, () -> gate.resolve(context(), denied));
+    assertThrows(IllegalArgumentException.class, () -> gate.resolve(context, denied));
   }
 
   @Test

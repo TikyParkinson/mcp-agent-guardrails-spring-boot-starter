@@ -237,7 +237,8 @@ class RequestApprovalServiceTest {
     // given no identifier
     // when a decision is recorded
     // then it fails
-    assertThrows(NullPointerException.class, () -> service.resolve(null, new Approved("alice")));
+    Approved decision = new Approved("alice");
+    assertThrows(NullPointerException.class, () -> service.resolve(null, decision));
   }
 
   @Test

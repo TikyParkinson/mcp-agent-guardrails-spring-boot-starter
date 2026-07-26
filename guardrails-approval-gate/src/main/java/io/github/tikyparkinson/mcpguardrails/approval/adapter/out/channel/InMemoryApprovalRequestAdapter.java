@@ -25,11 +25,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Default approval channel, held in this process. Requests wait on a latch that whoever decides
@@ -107,24 +108,28 @@ public final class InMemoryApprovalRequestAdapter implements ApprovalRequestPort
       return Optional.empty();
     }
     try {
-      approval.latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
+      return Optional.of(approval.decision().get(timeout.toMillis(), TimeUnit.MILLISECONDS));
+    } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
+      return Optional.empty();
+    } catch (ExecutionException | TimeoutException _) {
+      return Optional.empty();
+    } finally {
+      release(id);
     }
-    release(id);
-    return Optional.ofNullable(approval.decision.get());
   }
 
+  /**
+   * Completing the pending decision is what makes the first answer win: a second call finds it
+   * already completed and changes nothing, so a refusal cannot be overwritten by whoever speaks
+   * last.
+   */
   @Override
   public boolean resolve(ApprovalId id, ApprovalDecision decision) {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(decision, "decision");
     PendingApproval approval = pending.get(id);
-    if (approval == null || !approval.decision.compareAndSet(null, decision)) {
-      return false;
-    }
-    approval.latch.countDown();
-    return true;
+    return approval != null && approval.decision().complete(decision);
   }
 
   @Override
@@ -187,10 +192,10 @@ public final class InMemoryApprovalRequestAdapter implements ApprovalRequestPort
   }
 
   private record PendingApproval(
-      ApprovalRequest request, CountDownLatch latch, AtomicReference<ApprovalDecision> decision) {
+      ApprovalRequest request, CompletableFuture<ApprovalDecision> decision) {
 
     PendingApproval(ApprovalRequest request) {
-      this(request, new CountDownLatch(1), new AtomicReference<>());
+      this(request, new CompletableFuture<>());
     }
   }
 }

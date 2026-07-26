@@ -77,7 +77,7 @@ class ApprovalFlowTest {
 
   @Test
   @Timeout(15)
-  void shouldShowTheApproverWhatIsAboutToRun() throws InterruptedException {
+  void shouldShowTheApproverWhatIsAboutToRun() {
     // given an escalated invocation waiting
     RequestApprovalService service = service(Duration.ofSeconds(10), true);
     ApprovalGate gate = new ApprovalGate(service);
@@ -96,7 +96,7 @@ class ApprovalFlowTest {
 
   @Test
   @Timeout(15)
-  void shouldHideTheArgumentsWhenConfiguredTo() throws InterruptedException {
+  void shouldHideTheArgumentsWhenConfiguredTo() {
     // given a gate configured to keep arguments out of the channel
     RequestApprovalService service = service(Duration.ofSeconds(10), false);
     ApprovalGate gate = new ApprovalGate(service);

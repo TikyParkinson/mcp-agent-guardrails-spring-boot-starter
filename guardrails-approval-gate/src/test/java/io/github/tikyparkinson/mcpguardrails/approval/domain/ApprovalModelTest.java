@@ -93,9 +93,10 @@ class ApprovalModelTest {
     // given a blank agent
     // when constructed
     // then it fails: quotas are counted per agent
+    ApprovalId id = ApprovalId.newId();
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ApprovalRequest(ApprovalId.newId(), " ", "tool", Map.of(), "why", NOW));
+        () -> new ApprovalRequest(id, " ", "tool", Map.of(), "why", NOW));
   }
 
   @Test
@@ -103,9 +104,10 @@ class ApprovalModelTest {
     // given a blank tool name
     // when constructed
     // then it fails
+    ApprovalId id = ApprovalId.newId();
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ApprovalRequest(ApprovalId.newId(), "agent", "", Map.of(), "why", NOW));
+        () -> new ApprovalRequest(id, "agent", "", Map.of(), "why", NOW));
   }
 
   @Test
@@ -113,9 +115,10 @@ class ApprovalModelTest {
     // given a blank reason
     // when constructed
     // then it fails: a person asked to decide with no motive cannot decide
+    ApprovalId id = ApprovalId.newId();
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ApprovalRequest(ApprovalId.newId(), "agent", "tool", Map.of(), " ", NOW));
+        () -> new ApprovalRequest(id, "agent", "tool", Map.of(), " ", NOW));
   }
 
   @Test
@@ -123,9 +126,10 @@ class ApprovalModelTest {
     // given no instant
     // when constructed
     // then it fails
+    ApprovalId id = ApprovalId.newId();
     assertThrows(
         NullPointerException.class,
-        () -> new ApprovalRequest(ApprovalId.newId(), "agent", "tool", Map.of(), "why", null));
+        () -> new ApprovalRequest(id, "agent", "tool", Map.of(), "why", null));
   }
 
   @Test
@@ -143,9 +147,10 @@ class ApprovalModelTest {
     // given no argument map at all
     // when constructed
     // then it fails rather than silently meaning "none shown"
+    ApprovalId id = ApprovalId.newId();
     assertThrows(
         NullPointerException.class,
-        () -> new ApprovalRequest(ApprovalId.newId(), "agent", "tool", null, "why", NOW));
+        () -> new ApprovalRequest(id, "agent", "tool", null, "why", NOW));
   }
 
   @Test

@@ -60,12 +60,12 @@ public final class AuditingEvaluateToolInvocation implements EvaluateToolInvocat
   public ChainVerdict evaluate(ToolInvocationContext context) {
     ChainVerdict verdict = delegate.evaluate(context);
     for (GuardrailEvaluation evaluation : verdict.evaluations()) {
-      record(context, evaluation);
+      publish(context, evaluation);
     }
     return verdict;
   }
 
-  private void record(ToolInvocationContext context, GuardrailEvaluation evaluation) {
+  private void publish(ToolInvocationContext context, GuardrailEvaluation evaluation) {
     if (AuditGuardrail.GUARDRAIL_NAME.equals(evaluation.guardrailName())) {
       return;
     }

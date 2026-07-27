@@ -71,11 +71,11 @@ public final class AuditingRequestApproval implements RequestApprovalUseCase {
       Instant requestedAt) {
     ApprovalDecision decision =
         delegate.requestApproval(agentId, toolName, arguments, reason, requestedAt);
-    record(agentId, toolName, decision);
+    publish(agentId, toolName, decision);
     return decision;
   }
 
-  private void record(String agentId, String toolName, ApprovalDecision decision) {
+  private void publish(String agentId, String toolName, ApprovalDecision decision) {
     try {
       auditBus.publish(
           new NewAuditEvent(

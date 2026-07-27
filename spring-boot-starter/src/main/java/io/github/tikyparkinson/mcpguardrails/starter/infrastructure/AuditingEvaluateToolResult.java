@@ -56,12 +56,12 @@ public final class AuditingEvaluateToolResult implements EvaluateToolResultUseCa
   public ResultVerdict evaluate(ToolResultContext context) {
     ResultVerdict verdict = delegate.evaluate(context);
     for (ResultEvaluation evaluation : verdict.evaluations()) {
-      record(context, evaluation);
+      publish(context, evaluation);
     }
     return verdict;
   }
 
-  private void record(ToolResultContext context, ResultEvaluation evaluation) {
+  private void publish(ToolResultContext context, ResultEvaluation evaluation) {
     try {
       auditBus.publish(
           new NewAuditEvent(

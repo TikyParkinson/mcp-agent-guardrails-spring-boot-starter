@@ -70,7 +70,7 @@ public final class Base64Decoder {
       String decoded =
           new String(Base64.getMimeDecoder().decode(candidate), StandardCharsets.UTF_8);
       return isPrintable(decoded) ? Optional.of(decoded) : Optional.empty();
-    } catch (IllegalArgumentException notBase64) {
+    } catch (IllegalArgumentException _) {
       return Optional.empty();
     }
   }
@@ -78,11 +78,12 @@ public final class Base64Decoder {
   /**
    * Arbitrary bytes decode into binary noise that cannot hold a secret in text form. Passing that
    * to the patterns would only add findings nobody can act on.
+   *
+   * <p>The decoded text is never empty here: the pattern above demands at least sixteen characters
+   * and the two that survive stripping are alphabet characters, which decode to at least one byte —
+   * a single one throws instead, and is caught above.
    */
   private static boolean isPrintable(String decoded) {
-    if (decoded.isEmpty()) {
-      return false;
-    }
     return decoded.chars().noneMatch(Base64Decoder::isControlOther);
   }
 

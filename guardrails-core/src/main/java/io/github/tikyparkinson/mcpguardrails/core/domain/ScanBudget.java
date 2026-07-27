@@ -13,10 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.tikyparkinson.mcpguardrails.injectionguard.domain;
+package io.github.tikyparkinson.mcpguardrails.core.domain;
 
 /**
  * How much of a structure a scan is allowed to walk.
+ *
+ * <p>It lives in core because more than one guardrail walks the same tool arguments, and two
+ * scanners that give up at different points would truncate the same payload in different places — a
+ * difference an operator cannot see and an attacker can measure. A guardrail that needs a different
+ * bound builds its own instance; what is shared is the concept and the default.
  *
  * <p>The cost of scanning is the number of nodes, not how deep they sit. Measured: a structure
  * nested a thousand levels deep flattens to nine values and costs the same as one nested eight,

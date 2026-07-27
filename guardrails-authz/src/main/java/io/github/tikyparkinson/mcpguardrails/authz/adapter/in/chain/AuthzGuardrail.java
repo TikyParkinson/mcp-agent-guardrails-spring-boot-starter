@@ -15,9 +15,6 @@
  */
 package io.github.tikyparkinson.mcpguardrails.authz.adapter.in.chain;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 import io.github.tikyparkinson.mcpguardrails.authz.application.port.in.AuthorizeToolInvocationUseCase;
 import io.github.tikyparkinson.mcpguardrails.authz.domain.PolicyDecision;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.out.Guardrail;
@@ -29,21 +26,22 @@ import io.github.tikyparkinson.mcpguardrails.core.domain.ToolInvocationContext;
 import java.util.Objects;
 
 /**
- * Authorization guardrail: evaluates the declarative agent-to-tool policy, records every decision
- * on the audit bus and translates the effect into a {@link GuardrailDecision}. Audit bus failures
- * propagate so the core chain fails closed.
+ * Authorization guardrail: evaluates the declarative agent-to-tool policy and translates the effect
+ * into a {@link GuardrailDecision}.
+ *
+ * <p>It does not publish to the audit bus. ARCHITECTURE.md §5 forbids one guardrail module from
+ * depending on another, and auditing happens once for the whole chain in {@code
+ * spring-boot-starter}. The matching rule travels in the decision itself — including on an {@code
+ * Allow}, which is why {@code Allow} carries a reason at all.
  */
 public final class AuthzGuardrail implements Guardrail {
 
   public static final String GUARDRAIL_NAME = "authz";
 
   private final AuthorizeToolInvocationUseCase authorize;
-  private final RecordAuditEventUseCase auditBus;
 
-  public AuthzGuardrail(
-      AuthorizeToolInvocationUseCase authorize, RecordAuditEventUseCase auditBus) {
+  public AuthzGuardrail(AuthorizeToolInvocationUseCase authorize) {
     this.authorize = Objects.requireNonNull(authorize, "authorize");
-    this.auditBus = Objects.requireNonNull(auditBus, "auditBus");
   }
 
   @Override
@@ -56,24 +54,13 @@ public final class AuthzGuardrail implements Guardrail {
     String agentId = context.agentId().value();
     String toolName = context.toolName().value();
     PolicyDecision decision = authorize.authorize(agentId, toolName);
-    recordDecision(agentId, toolName, decision);
     return toGuardrailDecision(agentId, toolName, decision);
-  }
-
-  private void recordDecision(String agentId, String toolName, PolicyDecision decision) {
-    AuditEventType type =
-        switch (decision.effect()) {
-          case ALLOW -> AuditEventType.DECISION_ALLOW;
-          case DENY -> AuditEventType.DECISION_DENY;
-          case ESCALATE -> AuditEventType.DECISION_ESCALATE;
-        };
-    auditBus.publish(new NewAuditEvent(agentId, toolName, GUARDRAIL_NAME, type, decision.source()));
   }
 
   private static GuardrailDecision toGuardrailDecision(
       String agentId, String toolName, PolicyDecision decision) {
     return switch (decision.effect()) {
-      case ALLOW -> new Allow();
+      case ALLOW -> new Allow(decision.source());
       case DENY ->
           new Deny(
               "agent '%s' is not allowed to call tool '%s' (%s)"

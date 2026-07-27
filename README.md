@@ -19,7 +19,10 @@ Our primary goals are:
   sensible in-memory defaults.
 * Be opinionated, but get out of the way: every store, policy source and rule set is a port —
   expose your own bean and the default backs off.
-* **Fail closed**: a broken guardrail or audit store never silently lets a call through.
+* **Fail closed**: a guardrail that throws denies the call rather than passing it. The one
+  deliberate exception is recording the decision trace — a broken audit store degrades
+  observability, never protection, because a store that could block calls would be a single point
+  of failure for the whole server.
 * Never persist tool arguments (PII/secret risk) — audit trails carry metadata only.
 
 ## Modules
@@ -27,7 +30,7 @@ Our primary goals are:
 | Module | Description |
 |---|---|
 | [guardrails-core](guardrails-core) | Shared model, `Guardrail` and `ResultGuardrail` SPIs, inbound and outbound chains, and the MCP tool-call interceptor |
-| [guardrails-audit](guardrails-audit) | Audit trail of tool invocations + the audit bus used by the other guardrails |
+| [guardrails-audit](guardrails-audit) | Audit trail of every invocation, every guardrail decision, both chains and every human approval |
 | [guardrails-authz](guardrails-authz) | Declarative agent→tool authorization policy (first-match-wins rules) |
 | [guardrails-injection-guard](guardrails-injection-guard) | Rule-based prompt-injection detection over tool arguments |
 | [guardrails-ratelimit](guardrails-ratelimit) | Fixed-window rate limiting per (agent, tool) pair |

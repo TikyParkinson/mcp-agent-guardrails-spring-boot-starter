@@ -52,8 +52,8 @@ public class GuardrailsCredentialLeakAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   public ScanToolArgumentsForSecretsUseCase scanToolArgumentsForSecretsUseCase(
-      SecretPatternSetPort patternSetPort) {
-    return new ScanToolArgumentsForSecretsService(patternSetPort);
+      SecretPatternSetPort patternSetPort, GuardrailsCredentialLeakProperties properties) {
+    return new ScanToolArgumentsForSecretsService(patternSetPort, properties.toBudget());
   }
 
   @Bean

@@ -70,7 +70,11 @@ public final class CredentialLeakGuardrail implements Guardrail {
   public GuardrailDecision evaluate(ToolInvocationContext context) {
     SecretScanResult result = useCase.scan(context.arguments());
     if (result.clean()) {
-      return new Allow();
+      // Nothing matched is not the same as nothing being there. When the walk ran out of budget
+      // part of the arguments was never looked at, and answering Allow would claim otherwise.
+      return result.complete()
+          ? new Allow()
+          : new Deny("tool arguments too large to scan for credentials");
     }
     SecretSeverity severity = result.highestSeverity().orElseThrow();
     InputAction action = severity == SecretSeverity.CONFIRMED ? onConfirmed : onSuspected;

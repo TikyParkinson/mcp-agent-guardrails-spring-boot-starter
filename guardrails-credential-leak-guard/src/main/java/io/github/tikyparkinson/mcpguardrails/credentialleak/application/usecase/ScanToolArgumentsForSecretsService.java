@@ -15,6 +15,7 @@
  */
 package io.github.tikyparkinson.mcpguardrails.credentialleak.application.usecase;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.application.port.in.ScanToolArgumentsForSecretsUseCase;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.application.port.out.SecretPatternSetPort;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretScanResult;
@@ -33,14 +34,22 @@ public final class ScanToolArgumentsForSecretsService
   private static final String ARGUMENTS = "arguments";
 
   private final SecretPatternSetPort patternSetPort;
+  private final ScanBudget budget;
 
+  /** Scans within the default budget. */
   public ScanToolArgumentsForSecretsService(SecretPatternSetPort patternSetPort) {
+    this(patternSetPort, ScanBudget.defaults());
+  }
+
+  public ScanToolArgumentsForSecretsService(
+      SecretPatternSetPort patternSetPort, ScanBudget budget) {
     this.patternSetPort = Objects.requireNonNull(patternSetPort, "patternSetPort");
+    this.budget = Objects.requireNonNull(budget, "budget");
   }
 
   @Override
   public SecretScanResult scan(Map<String, Object> arguments) {
     Objects.requireNonNull(arguments, ARGUMENTS);
-    return SecretScanner.scan(arguments, patternSetPort.activePatterns(), ARGUMENTS);
+    return SecretScanner.scan(arguments, patternSetPort.activePatterns(), ARGUMENTS, budget);
   }
 }

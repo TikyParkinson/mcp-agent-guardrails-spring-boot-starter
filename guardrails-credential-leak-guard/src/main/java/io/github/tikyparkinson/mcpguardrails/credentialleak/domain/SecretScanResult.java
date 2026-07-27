@@ -19,14 +19,26 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Outcome of scanning a set of values against the active patterns. */
-public record SecretScanResult(List<SecretFinding> findings) {
+/**
+ * Outcome of scanning a set of values against the active patterns.
+ *
+ * @param findings what matched and where
+ * @param complete false when the walk ran out of budget, so part of the arguments was never seen.
+ *     Nothing matching is not the same as nothing being there, and the guardrail treats the two
+ *     differently
+ */
+public record SecretScanResult(List<SecretFinding> findings, boolean complete) {
 
   public SecretScanResult {
     findings = List.copyOf(Objects.requireNonNull(findings, "findings"));
   }
 
-  /** True when nothing matched. */
+  /** A result from a walk that finished. */
+  public SecretScanResult(List<SecretFinding> findings) {
+    this(findings, true);
+  }
+
+  /** True when nothing matched. Says nothing about whether everything was looked at. */
   public boolean clean() {
     return findings.isEmpty();
   }

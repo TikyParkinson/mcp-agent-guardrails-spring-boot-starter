@@ -15,7 +15,6 @@
  */
 package io.github.tikyparkinson.mcpguardrails.starter.infrastructure;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
 import io.github.tikyparkinson.mcpguardrails.authz.adapter.in.chain.AuthzGuardrail;
 import io.github.tikyparkinson.mcpguardrails.authz.adapter.out.policy.InMemoryAccessPolicyAdapter;
 import io.github.tikyparkinson.mcpguardrails.authz.application.port.in.AuthorizeToolInvocationUseCase;
@@ -50,8 +49,7 @@ public class GuardrailsAuthzAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnProperty(name = "mcp.guardrails.authz.enabled", matchIfMissing = true)
-  public AuthzGuardrail authzGuardrail(
-      AuthorizeToolInvocationUseCase authorize, RecordAuditEventUseCase auditBus) {
-    return new AuthzGuardrail(authorize, auditBus);
+  public AuthzGuardrail authzGuardrail(AuthorizeToolInvocationUseCase authorize) {
+    return new AuthzGuardrail(authorize);
   }
 }

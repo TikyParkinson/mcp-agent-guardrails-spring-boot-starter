@@ -15,9 +15,6 @@
  */
 package io.github.tikyparkinson.mcpguardrails.ratelimit.adapter.in.chain;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.out.Guardrail;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
@@ -29,20 +26,20 @@ import java.util.Objects;
 
 /**
  * Rate limit guardrail: registers each invocation in its fixed window and denies once the (agent,
- * tool) pair exceeds the configured limit. Allowed invocations pass silently (anti-noise); denials
- * are recorded on the audit bus. Store/bus failures propagate so the core chain fails closed.
+ * tool) pair exceeds the configured limit. Store failures propagate so the core chain fails closed.
+ *
+ * <p>It does not publish to the audit bus — ARCHITECTURE.md §5 forbids depending on another
+ * guardrail module, and auditing happens once for the whole chain in {@code spring-boot-starter}.
+ * The counts that used to travel in the audit detail are in the denial reason instead.
  */
 public final class RateLimitGuardrail implements Guardrail {
 
   public static final String GUARDRAIL_NAME = "ratelimit";
 
   private final CheckRateLimitUseCase checkRateLimit;
-  private final RecordAuditEventUseCase auditBus;
 
-  public RateLimitGuardrail(
-      CheckRateLimitUseCase checkRateLimit, RecordAuditEventUseCase auditBus) {
+  public RateLimitGuardrail(CheckRateLimitUseCase checkRateLimit) {
     this.checkRateLimit = Objects.requireNonNull(checkRateLimit, "checkRateLimit");
-    this.auditBus = Objects.requireNonNull(auditBus, "auditBus");
   }
 
   @Override
@@ -63,7 +60,6 @@ public final class RateLimitGuardrail implements Guardrail {
     if (status.allowed()) {
       return new Allow();
     }
-    recordDenial(agentId, toolName, status);
     return new Deny(
         "rate limit exceeded for agent '%s' on tool '%s' (%d/%d in %s)"
             .formatted(
@@ -72,13 +68,5 @@ public final class RateLimitGuardrail implements Guardrail {
                 status.count(),
                 status.policy().maxInvocations(),
                 status.policy().window()));
-  }
-
-  private void recordDenial(String agentId, String toolName, RateLimitStatus status) {
-    String detail =
-        "count=%d limit=%d window=%s"
-            .formatted(status.count(), status.policy().maxInvocations(), status.policy().window());
-    auditBus.publish(
-        new NewAuditEvent(agentId, toolName, GUARDRAIL_NAME, AuditEventType.DECISION_DENY, detail));
   }
 }

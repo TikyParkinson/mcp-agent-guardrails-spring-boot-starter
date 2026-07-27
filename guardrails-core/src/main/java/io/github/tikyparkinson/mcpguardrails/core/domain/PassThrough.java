@@ -15,5 +15,17 @@
  */
 package io.github.tikyparkinson.mcpguardrails.core.domain;
 
+import java.util.Objects;
+
 /** The tool result is returned to the agent unchanged. */
-public record PassThrough() implements ResultDecision {}
+public record PassThrough(String reason) implements ResultDecision {
+
+  /** Returns the result untouched without saying why, which is the usual case. */
+  public PassThrough() {
+    this("");
+  }
+
+  public PassThrough {
+    Objects.requireNonNull(reason, "reason");
+  }
+}

@@ -15,6 +15,7 @@
  */
 package io.github.tikyparkinson.mcpguardrails.credentialleak.domain;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,10 +33,20 @@ public final class SecretScanner {
    */
   public static SecretScanResult scan(
       Map<String, Object> values, List<SecretPattern> patterns, String locationPrefix) {
+    return scan(values, patterns, locationPrefix, ScanBudget.defaults());
+  }
+
+  /** Scans within the given budget, reporting whether the whole structure was reached. */
+  public static SecretScanResult scan(
+      Map<String, Object> values,
+      List<SecretPattern> patterns,
+      String locationPrefix,
+      ScanBudget budget) {
     Objects.requireNonNull(patterns, "patterns");
     Objects.requireNonNull(locationPrefix, "locationPrefix");
+    FlattenedArguments flattened = ValueFlattener.flatten(values, budget);
     List<SecretFinding> findings = new ArrayList<>();
-    for (FlattenedValue value : ValueFlattener.flatten(values)) {
+    for (FlattenedValue value : flattened.values()) {
       String location = locationPrefix + "." + value.path();
       for (SecretPattern pattern : patterns) {
         if (pattern.pattern().matcher(value.text()).find()) {
@@ -43,6 +54,6 @@ public final class SecretScanner {
         }
       }
     }
-    return new SecretScanResult(findings);
+    return new SecretScanResult(findings, flattened.complete());
   }
 }

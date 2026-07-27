@@ -15,7 +15,6 @@
  */
 package io.github.tikyparkinson.mcpguardrails.starter.infrastructure;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.adapter.in.chain.InjectionGuardrail;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.adapter.out.rules.InMemoryInjectionRuleSetAdapter;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.application.port.in.ScanToolArgumentsUseCase;
@@ -42,15 +41,15 @@ public class GuardrailsInjectionGuardAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public ScanToolArgumentsUseCase scanToolArgumentsUseCase(InjectionRuleSetPort ruleSetPort) {
-    return new ScanToolArgumentsService(ruleSetPort);
+  public ScanToolArgumentsUseCase scanToolArgumentsUseCase(
+      InjectionRuleSetPort ruleSetPort, GuardrailsInjectionGuardProperties properties) {
+    return new ScanToolArgumentsService(ruleSetPort, properties.toBudget());
   }
 
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnProperty(name = "mcp.guardrails.injection-guard.enabled", matchIfMissing = true)
-  public InjectionGuardrail injectionGuardrail(
-      ScanToolArgumentsUseCase scanArguments, RecordAuditEventUseCase auditBus) {
-    return new InjectionGuardrail(scanArguments, auditBus);
+  public InjectionGuardrail injectionGuardrail(ScanToolArgumentsUseCase scanArguments) {
+    return new InjectionGuardrail(scanArguments);
   }
 }

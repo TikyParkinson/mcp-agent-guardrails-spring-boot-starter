@@ -17,15 +17,9 @@ package io.github.tikyparkinson.mcpguardrails.injectionguard.adapter.in.chain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 import io.github.tikyparkinson.mcpguardrails.core.domain.AgentId;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
@@ -51,21 +45,19 @@ class InjectionGuardrailTest {
           Map.of());
 
   private final ScanToolArgumentsUseCase scan = mock(ScanToolArgumentsUseCase.class);
-  private final RecordAuditEventUseCase auditBus = mock(RecordAuditEventUseCase.class);
-  private final InjectionGuardrail guardrail = new InjectionGuardrail(scan, auditBus);
+  private final InjectionGuardrail guardrail = new InjectionGuardrail(scan);
 
   @Test
-  void shouldAllowWithoutAuditingWhenScanIsClean() {
+  void shouldAllowWhenScanIsClean() {
     // given
     when(scan.scan(Map.of("q", "text"))).thenReturn(new ScanResult(List.of()));
 
-    // when / then: clean pass is silent — no audit noise
+    // when / then
     assertEquals(new Allow(), guardrail.evaluate(CONTEXT));
-    verifyNoInteractions(auditBus);
   }
 
   @Test
-  void shouldDenyAndAuditWhenMaliciousFindingPresent() {
+  void shouldDenyWhenMaliciousFindingPresent() {
     // given: one malicious + one suspicious — malicious dominates
     when(scan.scan(Map.of("q", "text")))
         .thenReturn(
@@ -81,18 +73,10 @@ class InjectionGuardrailTest {
             "malicious content detected in tool arguments "
                 + "(do-anything-now@q, ignore-previous-instructions@q)"),
         guardrail.evaluate(CONTEXT));
-    verify(auditBus)
-        .publish(
-            new NewAuditEvent(
-                "agent-1",
-                "search",
-                "injection-guard",
-                AuditEventType.DECISION_DENY,
-                "do-anything-now@q, ignore-previous-instructions@q"));
   }
 
   @Test
-  void shouldEscalateAndAuditWhenOnlySuspiciousFindingsPresent() {
+  void shouldEscalateWhenOnlySuspiciousFindingsPresent() {
     // given
     when(scan.scan(Map.of("q", "text")))
         .thenReturn(
@@ -103,26 +87,17 @@ class InjectionGuardrailTest {
     assertEquals(
         new Escalate("suspicious content detected in tool arguments (base64-blob@q)"),
         guardrail.evaluate(CONTEXT));
-    verify(auditBus)
-        .publish(
-            new NewAuditEvent(
-                "agent-1",
-                "search",
-                "injection-guard",
-                AuditEventType.DECISION_ESCALATE,
-                "base64-blob@q"));
   }
 
   @Test
-  void shouldPropagateFailureWhenAuditBusThrows() {
-    // given: unauditable detection must not pass silently (fail-closed in core)
-    when(scan.scan(Map.of("q", "text")))
-        .thenReturn(
-            new ScanResult(List.of(new ScanResult.Finding("x", InjectionSeverity.MALICIOUS, "q"))));
-    when(auditBus.publish(any())).thenThrow(new IllegalStateException("audit down"));
+  void shouldNotDependOnTheAuditBusWhenEvaluating() {
+    // given a clean scan
+    when(scan.scan(Map.of("q", "text"))).thenReturn(new ScanResult(List.of()));
 
-    // when / then
-    assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));
+    // when the guardrail evaluates
+    // then it decides on its own. ARCHITECTURE.md 5 forbids depending on another guardrail
+    // module, so a broken audit store can no longer turn a clean call into an error
+    assertEquals(new Allow(), guardrail.evaluate(CONTEXT));
   }
 
   @Test
@@ -133,9 +108,38 @@ class InjectionGuardrailTest {
   }
 
   @Test
-  void shouldRejectNullCollaboratorsWhenConstructed() {
+  void shouldRejectNullCollaboratorWhenConstructed() {
     // given / when / then
-    assertThrows(NullPointerException.class, () -> new InjectionGuardrail(null, auditBus));
-    assertThrows(NullPointerException.class, () -> new InjectionGuardrail(scan, null));
+    assertThrows(NullPointerException.class, () -> new InjectionGuardrail(null));
+  }
+
+  @Test
+  void shouldDenyWhenTheScanCouldNotFinish() {
+    // given a scan that found nothing but ran out of budget
+    when(scan.scan(Map.of("q", "text"))).thenReturn(new ScanResult(List.of(), false));
+
+    // when the guardrail evaluates
+    // then it denies. A walk that stopped early did not clear the arguments — this is the bypass
+    // F-10 described, where nine layers of nesting skipped the guardrail entirely
+    assertEquals(
+        new Deny("tool arguments too large to scan for injection"), guardrail.evaluate(CONTEXT));
+  }
+
+  @Test
+  void shouldPreferTheSpecificReasonWhenTheScanBothFoundSomethingAndRanOut() {
+    // given a scan that matched a rule before running out of budget
+    when(scan.scan(Map.of("q", "text")))
+        .thenReturn(
+            new ScanResult(
+                List.of(
+                    new ScanResult.Finding(
+                        "ignore-previous-instructions", InjectionSeverity.MALICIOUS, "q")),
+                false));
+
+    // when the guardrail evaluates
+    // then the agent is told what it did wrong, not that the payload was too big
+    assertEquals(
+        new Deny("malicious content detected in tool arguments (ignore-previous-instructions@q)"),
+        guardrail.evaluate(CONTEXT));
   }
 }

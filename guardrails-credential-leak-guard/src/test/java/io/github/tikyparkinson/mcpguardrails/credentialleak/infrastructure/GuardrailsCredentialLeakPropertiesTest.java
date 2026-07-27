@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.adapter.in.chain.InputAction;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.adapter.in.chain.OutputAction;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretPattern;
@@ -142,5 +143,35 @@ class GuardrailsCredentialLeakPropertiesTest {
 
     // when / then
     assertThrows(IllegalArgumentException.class, properties::toPatterns);
+  }
+
+  @Test
+  void shouldDescribeTheDefaultBudgetWhenNoLimitsAreConfigured() {
+    // given / when
+    ScanBudget budget = new GuardrailsCredentialLeakProperties().toBudget();
+
+    // then
+    assertEquals(ScanBudget.defaults(), budget);
+  }
+
+  @Test
+  void shouldDescribeTheConfiguredBudgetWhenLimitsAreOverridden() {
+    // given
+    GuardrailsCredentialLeakProperties properties =
+        new GuardrailsCredentialLeakProperties(
+            true,
+            true,
+            InputAction.DENY,
+            InputAction.ESCALATE,
+            OutputAction.REDACT,
+            List.of(),
+            25,
+            3);
+
+    // when
+    ScanBudget budget = properties.toBudget();
+
+    // then
+    assertEquals(new ScanBudget(25, 3), budget);
   }
 }

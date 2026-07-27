@@ -18,6 +18,7 @@ package io.github.tikyparkinson.mcpguardrails.credentialleak.infrastructure;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.adapter.in.chain.InputAction;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.adapter.in.chain.OutputAction;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.BuiltInSecretPatterns;
+import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretPattern;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretSeverity;
 import java.util.ArrayList;
@@ -41,6 +42,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     Default: {@code REDACT} — the rest of the answer is still useful to the model. A finding in
  *     the structured content is always blocked and has no property: it cannot be rewritten.
  * @param customPatterns additional patterns appended after the built-in ones. Default: empty.
+ * @param maxScanNodes values examined before the scan gives up. Default: {@code 10000}. Reaching it
+ *     denies the call rather than allowing it: arguments nobody finished looking at are not
+ *     arguments known to be clean. The worst case it admits costs about 3 ms.
+ * @param maxScanDepth nesting levels explored before the scan gives up. Default: {@code 64}. A
+ *     guard against runaway recursion, not a cost control — depth is cheap, node count is not.
  */
 @ConfigurationProperties(prefix = "mcp.guardrails.credential-leak")
 public record GuardrailsCredentialLeakProperties(
@@ -49,7 +55,9 @@ public record GuardrailsCredentialLeakProperties(
     @DefaultValue("DENY") InputAction onConfirmedInput,
     @DefaultValue("ESCALATE") InputAction onSuspectedInput,
     @DefaultValue("REDACT") OutputAction onOutputText,
-    List<CustomPattern> customPatterns) {
+    List<CustomPattern> customPatterns,
+    @DefaultValue("10000") int maxScanNodes,
+    @DefaultValue("64") int maxScanDepth) {
 
   @ConstructorBinding
   public GuardrailsCredentialLeakProperties {
@@ -59,6 +67,33 @@ public record GuardrailsCredentialLeakProperties(
   /** Default configuration: enabled, built-in patterns on, deny confirmed, redact on output. */
   public GuardrailsCredentialLeakProperties() {
     this(true, true, InputAction.DENY, InputAction.ESCALATE, OutputAction.REDACT, List.of());
+  }
+
+  /**
+   * The form this record had before the scan budget existed, kept so callers that predate it still
+   * compile. Uses the default budget.
+   */
+  public GuardrailsCredentialLeakProperties(
+      boolean enabled,
+      boolean builtInPatternsEnabled,
+      InputAction onConfirmedInput,
+      InputAction onSuspectedInput,
+      OutputAction onOutputText,
+      List<CustomPattern> customPatterns) {
+    this(
+        enabled,
+        builtInPatternsEnabled,
+        onConfirmedInput,
+        onSuspectedInput,
+        onOutputText,
+        customPatterns,
+        ScanBudget.defaults().maxNodes(),
+        ScanBudget.defaults().maxDepth());
+  }
+
+  /** The scan budget this configuration describes. */
+  public ScanBudget toBudget() {
+    return new ScanBudget(maxScanNodes, maxScanDepth);
   }
 
   /** Builds the pattern list this configuration describes (built-ins first, then customs). */

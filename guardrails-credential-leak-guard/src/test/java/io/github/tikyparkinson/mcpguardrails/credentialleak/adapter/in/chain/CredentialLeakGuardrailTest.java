@@ -217,4 +217,34 @@ class CredentialLeakGuardrailTest {
         NullPointerException.class,
         () -> new CredentialLeakGuardrail(useCase, InputAction.DENY, null));
   }
+
+  @Test
+  void shouldDenyWhenTheScanCouldNotFinish() {
+    // given a scan that found nothing but ran out of budget
+    when(useCase.scan(CONTEXT.arguments())).thenReturn(new SecretScanResult(List.of(), false));
+
+    // when the guardrail evaluates
+    // then it denies. Answering Allow would claim the arguments are clean when the truth is that
+    // nobody finished looking at them — this is the bypass F-10 described
+    assertEquals(
+        new Deny("tool arguments too large to scan for credentials"),
+        guardrail(InputAction.DENY, InputAction.ESCALATE).evaluate(CONTEXT));
+  }
+
+  @Test
+  void shouldPreferTheSpecificReasonWhenTheScanBothFoundSomethingAndRanOut() {
+    // given a scan that found a credential before running out of budget
+    when(useCase.scan(CONTEXT.arguments()))
+        .thenReturn(
+            new SecretScanResult(
+                List.of(new SecretFinding("aws-access-key-id", SecretSeverity.CONFIRMED, "a.b")),
+                false));
+
+    // when the guardrail evaluates
+    // then the agent is told what it did wrong, not that the payload was too big. The generic
+    // reason would invite it to retry with a different shape
+    assertEquals(
+        new Deny("credential detected in tool arguments (aws-access-key-id@a.b)"),
+        guardrail(InputAction.DENY, InputAction.ESCALATE).evaluate(CONTEXT));
+  }
 }

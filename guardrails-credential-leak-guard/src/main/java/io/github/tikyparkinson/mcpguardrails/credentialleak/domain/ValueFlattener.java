@@ -24,42 +24,111 @@ import java.util.Objects;
  * Flattens an arbitrary structure into (path, text) pairs so every string can be scanned, wherever
  * it is nested.
  *
- * <p>Recursion stops at depth {@value #MAX_DEPTH} to bound the cost of deeply nested input.
+ * <p>The walk is bounded by a {@link ScanBudget}. Running out of it does not mean the arguments are
+ * clean — it means part of them was never seen — so the result says so and the guardrail denies.
  * Non-string leaves (numbers, booleans, nulls) carry no credential and are skipped.
+ *
+ * <p>Map keys are scanned as well as map values: a credential used as a field name is still a
+ * credential sitting in the arguments. Text that turns out to be Base64 is emitted twice, once as
+ * it arrived and once decoded, so a {@code .env} serialized into an argument does not sail past
+ * every pattern.
  */
 public final class ValueFlattener {
 
-  /** Maximum nesting level explored; deeper values are ignored. */
-  public static final int MAX_DEPTH = 8;
-
   private ValueFlattener() {}
 
-  /** Flattens the given map. Never returns null. */
-  public static List<FlattenedValue> flatten(Map<String, Object> values) {
-    Objects.requireNonNull(values, "values");
-    List<FlattenedValue> flattened = new ArrayList<>();
-    values.forEach((key, value) -> collect(String.valueOf(key), value, 1, flattened));
-    return List.copyOf(flattened);
+  /** Flattens the given map within the default budget. Never returns null. */
+  public static FlattenedArguments flatten(Map<String, Object> values) {
+    return flatten(values, ScanBudget.defaults());
   }
 
-  private static void collect(String path, Object value, int depth, List<FlattenedValue> sink) {
-    if (depth > MAX_DEPTH) {
-      return;
+  /** Flattens the given map, stopping when the budget runs out. Never returns null. */
+  public static FlattenedArguments flatten(Map<String, Object> values, ScanBudget budget) {
+    Objects.requireNonNull(values, "values");
+    Objects.requireNonNull(budget, "budget");
+    Walk walk = new Walk(budget);
+    walk.collectMap("", values, 0);
+    return new FlattenedArguments(walk.sink, walk.complete);
+  }
+
+  /** Carries the budget and whether it held, so the recursion does not have to thread them. */
+  private static final class Walk {
+    private final ScanBudget budget;
+    private final List<FlattenedValue> sink = new ArrayList<>();
+    private boolean complete = true;
+
+    private Walk(ScanBudget budget) {
+      this.budget = budget;
     }
-    switch (value) {
-      case String text -> sink.add(new FlattenedValue(path, text));
-      case Map<?, ?> map ->
-          map.forEach((key, nested) -> collect(path + "." + key, nested, depth + 1, sink));
-      case List<?> list -> collectList(path, list, depth, sink);
-      case null, default -> {
-        // numbers, booleans and nulls cannot hold a credential
+
+    private boolean exhausted() {
+      if (sink.size() >= budget.maxNodes()) {
+        complete = false;
+        return true;
+      }
+      return false;
+    }
+
+    private void add(FlattenedValue value) {
+      sink.add(value);
+    }
+
+    private void collect(String path, Object value, int depth) {
+      if (depth > budget.maxDepth()) {
+        complete = false;
+        return;
+      }
+      if (exhausted()) {
+        return;
+      }
+      switch (value) {
+        case String text -> collectText(path, text);
+        case Map<?, ?> map -> collectMap(path, map, depth);
+        case List<?> list -> collectList(path, list, depth);
+        case null, default -> {
+          // numbers, booleans and nulls cannot hold a credential
+        }
       }
     }
-  }
 
-  private static void collectList(String path, List<?> list, int depth, List<FlattenedValue> sink) {
-    for (int index = 0; index < list.size(); index++) {
-      collect(path + "[" + index + "]", list.get(index), depth + 1, sink);
+    /**
+     * Emits the text itself and, when it turns out to be Base64, whatever it was hiding. The {@code
+     * (base64)} suffix is the only trace that decoding happened — the decoded text is scanned and
+     * discarded, never recorded, exactly like the original.
+     */
+    private void collectText(String path, String text) {
+      add(new FlattenedValue(path, text));
+      Base64Decoder.decode(text)
+          .ifPresent(decoded -> add(new FlattenedValue(path + "(base64)", decoded)));
+    }
+
+    /**
+     * Walks a map by value and by key. A credential used as a field name is still a credential in
+     * the arguments, and until F-5 only the value side was looked at. The braces tell an
+     * investigator that the secret was the name of the field rather than its contents, which are
+     * different incidents.
+     */
+    private void collectMap(String path, Map<?, ?> map, int depth) {
+      for (Map.Entry<?, ?> entry : map.entrySet()) {
+        if (exhausted()) {
+          return;
+        }
+        Object key = entry.getKey();
+        String childPath = path.isEmpty() ? String.valueOf(key) : path + "." + key;
+        if (key instanceof String text) {
+          collectText(path + "{" + text + "}", text);
+        }
+        collect(childPath, entry.getValue(), depth + 1);
+      }
+    }
+
+    private void collectList(String path, List<?> list, int depth) {
+      for (int index = 0; index < list.size(); index++) {
+        if (exhausted()) {
+          return;
+        }
+        collect(path + "[" + index + "]", list.get(index), depth + 1);
+      }
     }
   }
 }

@@ -23,8 +23,7 @@ import java.util.Objects;
 
 /**
  * Pure scanner: applies every rule to every string value found in the (recursively flattened)
- * argument map. Nesting deeper than {@link #MAX_DEPTH} is ignored to avoid nesting bombs;
- * non-string leaves (numbers, booleans, null) are not a text vector and are skipped.
+ * argument map. Non-string leaves (numbers, booleans, null) are not a text vector and are skipped.
  *
  * <p>The walk is bounded by a {@link ScanBudget}. Running out of it does not mean the arguments are
  * clean — it means part of them was never seen — so the result says so and the guardrail denies.

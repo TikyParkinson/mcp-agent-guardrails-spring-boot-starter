@@ -50,10 +50,51 @@ post-processor. [guardrails-approval-gate](../guardrails-approval-gate) provides
 `EscalationResolver` that an `Escalate` verdict reaches; without it on the classpath an escalation
 returns an error to the agent, and the starter says so at start-up.
 
+### Auditing
+
+The starter is also where auditing happens. ARCHITECTURE.md §5 forbids one guardrail module from
+depending on another, so no guardrail writes to the audit bus itself; the wiring layer — which
+legitimately depends on all of them — observes each verdict once and records it.
+
+That covers **every** guardrail's decision including the permissive ones, both chains, and how an
+escalation ended: approved or rejected by a named person, or closed with no person involved. A
+guardrail you contribute yourself is audited by the same mechanism without knowing auditing exists.
+
+Auditing is observation and never a requirement for deciding. Without
+[guardrails-audit](../guardrails-audit) on the classpath the chains are published undecorated and
+the guardrails still protect the server, and if the audit store fails at runtime the decorators
+swallow it: an audit store that could block calls would be a single point of failure for the whole
+MCP server.
+
+One allowed invocation records nine events, so the retention of the default in-memory store is
+shorter than the raw number suggests — see the [audit README](../guardrails-audit).
+
 ## Configuration
 
 Master switch: `mcp.guardrails.enabled=true` (default). Setting it to `false` backs off every
 auto-configuration, including the bean post-processor, so no tool is decorated at all.
+
+Backing off means the beans are gone, not inert. If your own code injects a guardrails port, a
+mandatory dependency stops the whole application from starting once the switch is off:
+
+```
+Parameter 0 of constructor in AuditController required a bean of type
+'...AuditLogStorePort' that could not be found
+```
+
+Inject through `ObjectProvider` if you want the switch to stay usable:
+
+```java
+public AuditController(ObjectProvider<AuditLogStorePort> auditLog) {
+  this.auditLog = auditLog;
+}
+
+AuditLogStorePort store = auditLog.getIfAvailable();
+return store == null ? List.of() : store.findRecent(limit);
+```
+
+Turning a single module off (`mcp.guardrails.egress.enabled=false`) removes its guardrail from the
+chain but leaves its ports registered, so this only applies to the master switch.
 
 Each module keeps its own prefix and its own `enabled` flag. Note that three prefixes are shorter
 than the module name:

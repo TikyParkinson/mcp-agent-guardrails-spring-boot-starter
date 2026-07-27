@@ -8,7 +8,8 @@ No auto-configuration here — the [spring-boot-starter](../spring-boot-starter)
 ## How it works
 
 * `AuthzGuardrail` (name `authz`, order `0`) evaluates the policy for every invocation, records
-  the decision on the audit bus (`detail` tells which rule fired) and returns
+  the matching rule in the decision itself — an `Allow` carries its rule id, so the audit trail
+  records why an invocation was permitted and not only that it was — and returns
   `Allow` / `Deny(reason)` / `Escalate(reason)`.
 * Policy semantics: **first matching rule wins**; no match ⇒ `default-effect`. Patterns are
   exact (case-sensitive) or the full wildcard `*` — nothing in between, on purpose: partial

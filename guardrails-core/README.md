@@ -43,10 +43,11 @@ it to the inbound chain automatically. There is no default store to replace here
 stateless; persistence-backed guardrails document their own pluggable ports in their READMEs.
 
 The outbound SPI is
-`io.github.tikyparkinson.mcpguardrails.core.application.port.out.ResultGuardrail`. It is not
-wired by the starter yet: build a `ResultGuardrailChain` with your guardrails and pass it to
-`GuardrailToolDecorator.decorate(specification, useCase, resultUseCase, agentIdResolver, clock)`
-to activate it. Auto-configuration ships with the first module that consumes it.
+`io.github.tikyparkinson.mcpguardrails.core.application.port.out.ResultGuardrail`, wired by the
+starter the same way: expose a bean and it joins the outbound chain. To drive it yourself, build a
+`ResultGuardrailChain` and pass it to `GuardrailToolDecorator.decorate(specification, useCase,
+resultUseCase, agentIdResolver, clock)`, or to the six-argument overload if you also supply an
+`EscalationResolver`.
 
 With no `ResultGuardrail` registered the outbound chain is a no-op: the result is returned by
 identity, exactly as before the SPI existed.
@@ -55,6 +56,38 @@ Outbound guardrails see every redactable text of the result — the text of each
 of each `EmbeddedResource` carrying textual contents, so a tool returning a file as a resource is
 inspected too — which they may redact positionally, plus its structured content, which is
 read-only: a secret found there can only be answered with `Block`.
+
+## Agent identity
+
+`AgentIdResolver` turns an MCP exchange into the `AgentId` that every per-agent control keys on —
+rate limits, anomaly history, approval quotas. The default reads `clientInfo.name`, falling back to
+`unknown`.
+
+**That name is chosen by the client.** An agent that changes it starts again with a clean rate-limit
+window and an empty history; the guardrails have no way to tell it is the same caller. Verified, and
+stated here rather than left to be discovered:
+
+```
+clientInfo.name = "agent-a"   6th call in the window → denied
+clientInfo.name = "agent-b"   1st call               → allowed, counter at zero
+```
+
+Changing *session* does not reset anything, which is correct: the limits are per agent, not per
+connection.
+
+This is the boundary between the identity an agent claims and the identity a deployment can prove,
+and closing it is not something a guardrail can do on its own — it needs an authentication layer.
+Anything beyond a trusted-client deployment should replace the resolver with one that reads an
+authenticated principal:
+
+```java
+@Bean
+AgentIdResolver agentIdResolver() {
+  return exchange -> new AgentId(myAuthContext.subjectOf(exchange));
+}
+```
+
+The default backs off, and every per-agent control starts keying on something the agent cannot pick.
 
 ## License
 

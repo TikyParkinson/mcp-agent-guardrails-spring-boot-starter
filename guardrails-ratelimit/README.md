@@ -8,12 +8,17 @@ No auto-configuration here — the [spring-boot-starter](../spring-boot-starter)
 ## How it works
 
 * `RateLimitGuardrail` (name `ratelimit`, order `100`) counts every invocation in its fixed
-  window. Within the limit ⇒ `Allow` (silent). Exceeded ⇒ `Deny` with count/limit/window in the
-  reason, recorded on the audit bus.
+  window. Within the limit ⇒ `Allow`. Exceeded ⇒ `Deny` with count/limit/window in the reason,
+  which is what the audit trail records.
 * Denied attempts also consume quota — hammering while throttled does not help.
 * Fixed-window semantics: at a window boundary a client can burst up to 2× the limit across two
   adjacent instants. Acceptable as a first line of defense; plug a different store/algorithm
   through the port if you need more.
+* **The limit is only as strong as the identity it keys on.** With the default `AgentIdResolver`
+  the agent id is `clientInfo.name`, which the client picks: renaming itself gives an agent a fresh
+  window. Opening a new session does not, since the counter is per agent rather than per
+  connection. See [Agent identity](../guardrails-core#agent-identity) in core for how to key on an
+  authenticated principal instead.
 
 ## Configuration
 

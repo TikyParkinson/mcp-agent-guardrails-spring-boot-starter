@@ -140,6 +140,35 @@ read is the data it later sent out; it only says the two abilities met. That is 
 claim and its limit: it identifies an exploitable arrangement, not an exploit in progress. Expect
 legitimate sessions to trigger it — that is why the verdict escalates rather than blocks.
 
+**Splitting the legs across separate connections evades it.** Verified:
+
+```
+session A   read_customer   PRIVATE_DATA        allowed
+session B   fetch_page      UNTRUSTED_CONTENT   allowed
+session C   http_post       EXTERNAL_COMMS      allowed
+locked sessions: []
+```
+
+Three connections from the same client, one leg each, no detection. Within a single session the
+correlation is solid — reversing the order still trips it — but the boundary of a session is the
+boundary of the guardrail, and that follows from the design rather than from a gap in it:
+correlating across sessions means correlating on the agent identifier, which is the client
+product's name and shared by everyone using it.
+
+The way to close it is to give the correlator an identity worth grouping by. A `SessionIdResolver`
+that returns the same id for the same authenticated user across connections turns three sessions
+back into one:
+
+```java
+@Bean
+SessionIdResolver sessionIdResolver() {
+  return context -> SessionId.ofMcpSession(myAuthContext.conversationOf(context));
+}
+```
+
+That trades false positives for coverage — a user's unrelated work now shares a session — which is
+why it is not the default. Decide it deliberately.
+
 ## License
 
 Apache 2.0 — see the repository [LICENSE](../LICENSE).

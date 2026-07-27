@@ -31,11 +31,17 @@ public record InjectionRule(String id, Pattern pattern, InjectionSeverity severi
     }
   }
 
-  /** Compiles the regex (case-insensitive, DOTALL). Invalid regex ⇒ IllegalArgumentException. */
+  /**
+   * Compiles the regex case-insensitively, across lines, and with Unicode-aware case folding.
+   * Without {@code UNICODE_CASE} the insensitivity is ASCII-only, so a custom rule written in a
+   * non-Latin script would not match its own upper-case form. Invalid regex ⇒
+   * IllegalArgumentException.
+   */
   public static InjectionRule of(String id, String regex, InjectionSeverity severity) {
     Objects.requireNonNull(regex, "regex");
     try {
-      Pattern compiled = Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+      Pattern compiled =
+          Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.DOTALL);
       return new InjectionRule(id, compiled, severity);
     } catch (PatternSyntaxException e) {
       throw new IllegalArgumentException("Invalid regex for rule '" + id + "': " + regex, e);

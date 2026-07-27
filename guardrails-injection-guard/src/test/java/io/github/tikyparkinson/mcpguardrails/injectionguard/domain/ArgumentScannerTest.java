@@ -16,6 +16,7 @@
 package io.github.tikyparkinson.mcpguardrails.injectionguard.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,33 +98,59 @@ class ArgumentScannerTest {
   }
 
   @Test
-  void shouldIgnoreValuesNestedDeeperThanMaxDepth() {
-    // given: nesting bomb — value sits below the depth cap
+  void shouldScanValuesNestedPastTheOldDepthLimitWhenNested() {
+    // given a payload wrapped in twelve layers, which used to sit below the cap
     Object value = "evil payload";
-    for (int i = 0; i < ArgumentScanner.MAX_DEPTH; i++) {
+    for (int i = 0; i < 12; i++) {
       value = Map.of("level", value);
     }
 
-    // when
+    // when the arguments are scanned
     ScanResult result = ArgumentScanner.scan(Map.of("root", value), RULES);
 
-    // then
-    assertTrue(result.clean());
+    // then it is caught. Wrapping a payload in enough layers used to skip the guardrail entirely
+    assertFalse(result.clean());
   }
 
   @Test
-  void shouldScanValueAtExactlyMaxDepthWhenNestedAtBoundary() {
-    // given: value at depth == MAX_DEPTH must still be scanned
+  void shouldReportAnIncompleteWalkWhenNestedPastTheBudgetDepth() {
+    // given a structure deeper than the budget allows
     Object value = "evil payload";
-    for (int i = 0; i < ArgumentScanner.MAX_DEPTH - 1; i++) {
+    for (int i = 0; i < 70; i++) {
       value = Map.of("level", value);
     }
 
-    // when
+    // when the arguments are scanned
     ScanResult result = ArgumentScanner.scan(Map.of("root", value), RULES);
 
-    // then
-    assertEquals(1, result.findings().size());
+    // then nothing matched, and the result says the walk did not finish — which is what makes the
+    // guardrail deny instead of allow
+    assertFalse(result.complete());
+  }
+
+  @Test
+  void shouldReportAnIncompleteWalkWhenThereAreMoreValuesThanTheBudget() {
+    // given a wide structure, which is where scanning actually costs
+    Map<String, Object> wide = new HashMap<>();
+    for (int field = 0; field < 12_000; field++) {
+      wide.put("f" + field, "value " + field);
+    }
+
+    // when the arguments are scanned
+    ScanResult result = ArgumentScanner.scan(wide, RULES);
+
+    // then the walk stops and says so
+    assertFalse(result.complete());
+  }
+
+  @Test
+  void shouldReportACompleteWalkWhenTheArgumentsFitTheBudget() {
+    // given an ordinary call
+    // when the arguments are scanned
+    ScanResult result = ArgumentScanner.scan(Map.of("q", "sales report"), RULES);
+
+    // then the walk finished, which is the only case that can allow
+    assertTrue(result.complete());
   }
 
   @Test

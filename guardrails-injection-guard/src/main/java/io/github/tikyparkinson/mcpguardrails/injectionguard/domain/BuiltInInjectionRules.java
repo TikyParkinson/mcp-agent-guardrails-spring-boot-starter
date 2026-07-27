@@ -30,21 +30,25 @@ public final class BuiltInInjectionRules {
     return List.of(
         InjectionRule.of(
             "ignore-previous-instructions",
-            "ignore\\s+(all\\s+)?(previous|prior|above)\\s+(instructions|prompts?|rules)",
+            "ignore[\\s\\-_.]+(all[\\s\\-_.]+)?(previous|prior|above)[\\s\\-_.]+"
+                + "(instructions|prompts?|rules)",
             InjectionSeverity.MALICIOUS),
         InjectionRule.of(
             "reveal-system-prompt",
-            "(reveal|show|print|repeat)\\s+(your|the)\\s+(system\\s+)?prompt",
+            "(reveal|show|print|repeat)[\\s\\-_.]+(your|the)[\\s\\-_.]+(system[\\s\\-_.]+)?prompt",
             InjectionSeverity.MALICIOUS),
         InjectionRule.of(
-            "override-role", "you\\s+are\\s+(now|no\\s+longer)\\s+", InjectionSeverity.MALICIOUS),
+            "override-role",
+            "you[\\s\\-_.]+are[\\s\\-_.]+(now|no[\\s\\-_.]+longer)[\\s\\-_.]+",
+            InjectionSeverity.MALICIOUS),
         InjectionRule.of(
             "disregard-safety",
-            "(disregard|bypass|disable)\\s+(your\\s+)?(safety|guardrails?|filters?|restrictions)",
+            "(disregard|bypass|disable)[\\s\\-_.]+(your[\\s\\-_.]+)?"
+                + "(safety|guardrails?|filters?|restrictions)",
             InjectionSeverity.MALICIOUS),
         InjectionRule.of(
             "do-anything-now",
-            "\\b(DAN\\s+mode|do\\s+anything\\s+now|jailbreak)\\b",
+            "\\b(DAN[\\s\\-_.]+mode|do[\\s\\-_.]+anything[\\s\\-_.]+now|jailbreak)\\b",
             InjectionSeverity.SUSPICIOUS),
         InjectionRule.of("base64-blob", "[A-Za-z0-9+/]{200,}={0,2}", InjectionSeverity.SUSPICIOUS));
   }

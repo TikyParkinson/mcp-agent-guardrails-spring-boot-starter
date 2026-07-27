@@ -62,6 +62,11 @@ public final class ArgumentScanner {
       this.budget = budget;
     }
 
+    /**
+     * Asked once per element by the two loops below, which is every point where the walk can grow.
+     * {@link #scanValue} does not repeat the question: nothing between a loop's check and its call
+     * increases the count, so a second check there could never be true.
+     */
     private boolean exhausted() {
       if (visited >= budget.maxNodes()) {
         complete = false;
@@ -73,9 +78,6 @@ public final class ArgumentScanner {
     private void scanValue(String path, Object value, int depth) {
       if (depth > budget.maxDepth()) {
         complete = false;
-        return;
-      }
-      if (exhausted()) {
         return;
       }
       switch (value) {

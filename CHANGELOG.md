@@ -7,13 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- `injection-guard`: repair a javadoc reference to a deleted constant
-
-### Changed
-- `tool-integrity`: extract duplicated literals and simplify assertThrows lambdas (Sonar S1192, S5778) (#5)
+## [0.2.0] - 2026-07-27
 
 ### Added
+
 - **BREAKING** `guardrails`: close the evasion and audit gaps found in 0.2.0 (#13)
 - `starter`: wire the remaining seven guardrail modules (#12)
 - `trifecta-correlator`: escalate a session where the three legs meet (#11)
@@ -22,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `egress-control`: add outbound destination allowlist guardrail (#8)
 - `credential-leak`: add credential leak guard and the core outbound SPI it needs (#7)
 - `tool-integrity`: add guardrails-tool-integrity module with TOFU baseline verification (#4)
+
+### Changed
+
+- `tool-integrity`: extract duplicated literals and simplify assertThrows lambdas (Sonar S1192, S5778) (#5)
+
+### Fixed
+
+- `injection-guard`: repair a javadoc reference to a deleted constant
 
 ## [0.1.0] - 2026-07-24
 
@@ -62,5 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Testcontainers 2.0.5, PostgreSQL driver 42.7.11 (via Boot BOM). All versions verified as
   latest GA on Maven Central at pin time (ARCHITECTURE.md §2).
 
-[Unreleased]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/TikyParkinson/mcp-agent-guardrails-spring-boot-starter/releases/tag/v0.1.0

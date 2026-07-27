@@ -15,5 +15,20 @@
  */
 package io.github.tikyparkinson.mcpguardrails.core.domain;
 
+import java.util.Objects;
+
 /** The guardrail permits the tool invocation. */
-public record Allow() implements GuardrailDecision {}
+public record Allow(String reason) implements GuardrailDecision {
+
+  /**
+   * Permits without saying why. Kept so the historical {@code new Allow()} keeps working, and
+   * because most guardrails have nothing to add when they let an invocation through.
+   */
+  public Allow() {
+    this("");
+  }
+
+  public Allow {
+    Objects.requireNonNull(reason, "reason");
+  }
+}

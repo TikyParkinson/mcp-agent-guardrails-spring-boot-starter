@@ -22,11 +22,6 @@
       <version>${project.version}</version>
     </dependency>
     <!-- Spec §7: audit bus used by the adapter-in to record decisions -->
-    <dependency>
-      <groupId>io.github.tikyparkinson</groupId>
-      <artifactId>guardrails-audit</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <!-- Spec §7: only @ConfigurationProperties in infrastructure -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

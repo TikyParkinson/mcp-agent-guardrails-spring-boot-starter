@@ -23,11 +23,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Audit guardrail configuration, bound to the {@code mcp.guardrails.audit} prefix.
  *
  * @param enabled whether the audit guardrail is registered. Default: {@code true}.
- * @param inMemoryMaxEvents capacity of the default in-memory store buffer. Default: {@code 1000}.
+ * @param inMemoryMaxEvents capacity of the default in-memory store buffer. Default: {@code 5000}.
+ *     One allowed invocation records nine events — one per guardrail that decides, plus the
+ *     invocation itself — so this holds about 550 invocations. The buffer discards the oldest
+ *     silently, which is why anything beyond a demo should replace the in-memory adapter rather
+ *     than raise this number.
  */
 @ConfigurationProperties(prefix = "mcp.guardrails.audit")
 public record GuardrailsAuditProperties(
-    @DefaultValue("true") boolean enabled, @DefaultValue("1000") int inMemoryMaxEvents) {
+    @DefaultValue("true") boolean enabled, @DefaultValue("5000") int inMemoryMaxEvents) {
 
   @ConstructorBinding
   public GuardrailsAuditProperties {}

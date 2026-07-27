@@ -15,7 +15,6 @@
  */
 package io.github.tikyparkinson.mcpguardrails.starter.infrastructure;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
 import io.github.tikyparkinson.mcpguardrails.ratelimit.adapter.in.chain.RateLimitGuardrail;
 import io.github.tikyparkinson.mcpguardrails.ratelimit.adapter.out.persistence.InMemoryRateLimitStoreAdapter;
 import io.github.tikyparkinson.mcpguardrails.ratelimit.application.port.in.CheckRateLimitUseCase;
@@ -50,8 +49,7 @@ public class GuardrailsRatelimitAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnProperty(name = "mcp.guardrails.ratelimit.enabled", matchIfMissing = true)
-  public RateLimitGuardrail rateLimitGuardrail(
-      CheckRateLimitUseCase checkRateLimit, RecordAuditEventUseCase auditBus) {
-    return new RateLimitGuardrail(checkRateLimit, auditBus);
+  public RateLimitGuardrail rateLimitGuardrail(CheckRateLimitUseCase checkRateLimit) {
+    return new RateLimitGuardrail(checkRateLimit);
   }
 }

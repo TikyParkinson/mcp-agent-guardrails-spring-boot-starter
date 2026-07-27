@@ -15,6 +15,7 @@
  */
 package io.github.tikyparkinson.mcpguardrails.starter.infrastructure;
 
+import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.adapter.in.mcp.AgentIdResolver;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
@@ -76,8 +77,11 @@ public class GuardrailsCoreAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public EvaluateToolInvocationUseCase evaluateToolInvocationUseCase(List<Guardrail> guardrails) {
-    return new GuardrailChain(guardrails);
+  public EvaluateToolInvocationUseCase evaluateToolInvocationUseCase(
+      List<Guardrail> guardrails, ObjectProvider<RecordAuditEventUseCase> auditBus) {
+    GuardrailChain chain = new GuardrailChain(guardrails);
+    RecordAuditEventUseCase bus = auditBus.getIfAvailable();
+    return bus == null ? chain : new AuditingEvaluateToolInvocation(chain, bus);
   }
 
   /**
@@ -87,8 +91,11 @@ public class GuardrailsCoreAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean
-  public EvaluateToolResultUseCase evaluateToolResultUseCase(List<ResultGuardrail> guardrails) {
-    return new ResultGuardrailChain(guardrails);
+  public EvaluateToolResultUseCase evaluateToolResultUseCase(
+      List<ResultGuardrail> guardrails, ObjectProvider<RecordAuditEventUseCase> auditBus) {
+    ResultGuardrailChain chain = new ResultGuardrailChain(guardrails);
+    RecordAuditEventUseCase bus = auditBus.getIfAvailable();
+    return bus == null ? chain : new AuditingEvaluateToolResult(chain, bus);
   }
 
   /** Static: BeanPostProcessors must not trigger early initialization of the context. */

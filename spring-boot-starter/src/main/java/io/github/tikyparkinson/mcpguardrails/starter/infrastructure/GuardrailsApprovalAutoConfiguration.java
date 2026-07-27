@@ -22,7 +22,9 @@ import io.github.tikyparkinson.mcpguardrails.approval.application.port.in.Resolv
 import io.github.tikyparkinson.mcpguardrails.approval.application.port.out.ApprovalRequestPort;
 import io.github.tikyparkinson.mcpguardrails.approval.application.usecase.RequestApprovalService;
 import io.github.tikyparkinson.mcpguardrails.approval.infrastructure.GuardrailsApprovalProperties;
+import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.out.EscalationResolver;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -63,7 +65,12 @@ public class GuardrailsApprovalAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnProperty(name = "mcp.guardrails.approval.enabled", matchIfMissing = true)
-  public EscalationResolver approvalGate(RequestApprovalUseCase useCase) {
-    return new ApprovalGate(useCase);
+  public EscalationResolver approvalGate(
+      RequestApprovalUseCase useCase, ObjectProvider<RecordAuditEventUseCase> auditBus) {
+    RecordAuditEventUseCase bus = auditBus.getIfAvailable();
+    // Decorated here rather than by replacing the RequestApprovalUseCase bean: the same instance is
+    // also published as ResolveApprovalUseCase for the operator's controller, and swapping the bean
+    // would take that second type out of the context.
+    return new ApprovalGate(bus == null ? useCase : new AuditingRequestApproval(useCase, bus));
   }
 }

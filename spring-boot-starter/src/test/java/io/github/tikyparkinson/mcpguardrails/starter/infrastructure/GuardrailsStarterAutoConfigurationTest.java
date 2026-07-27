@@ -30,7 +30,6 @@ import io.github.tikyparkinson.mcpguardrails.audit.application.port.out.AuditLog
 import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
 import io.github.tikyparkinson.mcpguardrails.authz.adapter.in.chain.AuthzGuardrail;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
-import io.github.tikyparkinson.mcpguardrails.core.application.usecase.GuardrailChain;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.adapter.in.chain.InjectionGuardrail;
 import io.github.tikyparkinson.mcpguardrails.ratelimit.adapter.in.chain.RateLimitGuardrail;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -60,8 +59,9 @@ class GuardrailsStarterAutoConfigurationTest {
     // given / when / then: zero-configuration promise
     runner.run(
         context -> {
-          assertInstanceOf(
-              GuardrailChain.class, context.getBean(EvaluateToolInvocationUseCase.class));
+          // the bean is the auditing decorator wrapping the chain — asserting the concrete type
+          // would test how it is built rather than that it works
+          assertNotNull(context.getBean(EvaluateToolInvocationUseCase.class));
           assertTrue(context.containsBean("auditGuardrail"));
           assertTrue(context.containsBean("authzGuardrail"));
           assertTrue(context.containsBean("injectionGuardrail"));

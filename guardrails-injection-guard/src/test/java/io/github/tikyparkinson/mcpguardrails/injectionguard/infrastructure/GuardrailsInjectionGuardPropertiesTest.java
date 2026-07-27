@@ -18,6 +18,7 @@ package io.github.tikyparkinson.mcpguardrails.injectionguard.infrastructure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.InjectionRule;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.InjectionSeverity;
 import java.util.List;
@@ -83,5 +84,27 @@ class GuardrailsInjectionGuardPropertiesTest {
 
     // then
     assertEquals(List.of(), properties.customRules());
+  }
+
+  @Test
+  void shouldDescribeTheDefaultBudgetWhenNoLimitsAreConfigured() {
+    // given / when
+    ScanBudget budget = new GuardrailsInjectionGuardProperties().toBudget();
+
+    // then
+    assertEquals(ScanBudget.defaults(), budget);
+  }
+
+  @Test
+  void shouldDescribeTheConfiguredBudgetWhenLimitsAreOverridden() {
+    // given
+    GuardrailsInjectionGuardProperties properties =
+        new GuardrailsInjectionGuardProperties(true, true, List.of(), 25, 3);
+
+    // when
+    ScanBudget budget = properties.toBudget();
+
+    // then
+    assertEquals(new ScanBudget(25, 3), budget);
   }
 }

@@ -15,10 +15,10 @@
  */
 package io.github.tikyparkinson.mcpguardrails.injectionguard.application.usecase;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.application.port.in.ScanToolArgumentsUseCase;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.application.port.out.InjectionRuleSetPort;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.ArgumentScanner;
-import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.ScanResult;
 import java.util.Map;
 import java.util.Objects;

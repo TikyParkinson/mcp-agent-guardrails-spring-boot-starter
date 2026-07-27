@@ -47,8 +47,16 @@ trivial.
 
 ## 2. Modelo de dominio
 
-Un tipo nuevo por módulo, con la misma forma en los dos — no se comparte, porque §5 prohíbe que un
-guardrail dependa de otro y esto es demasiado poco para justificar una extensión de core:
+> **Revisado durante la implementación.** Este apartado decidió declarar un `ScanBudget` por módulo
+> «porque §5 prohíbe que un guardrail dependa de otro y esto es demasiado poco para justificar una
+> extensión de core». Los dos ficheros salieron idénticos byte a byte, y lo que importa no es la
+> duplicación sino que **los dos topes tienen que coincidir**: los dos guardrails recorren el mismo
+> mapa en la misma invocación, y truncarlo en dos puntos distintos es una diferencia que el operador
+> no ve y el atacante sí mide. El tipo pasa a `guardrails-core` bajo §5.1 —los dos módulos ya
+> dependen de core, así que no aparece ninguna dependencia entre guardrails—, especificado en
+> [`guardrails-core-scan-budget-spec.md`](guardrails-core-scan-budget-spec.md).
+
+El tipo, ahora en `io.github.tikyparkinson.mcpguardrails.core.domain`:
 
 ```java
 /** How much of a structure a scan is allowed to walk, and whether it fitted. */
@@ -184,11 +192,18 @@ falle es posible, pero falla cerrado: el peor resultado es denegar de más.
    ha hecho mal; el genérico le sugiere que reintente con otra forma, que es justo lo que no
    queremos enseñarle.
 
-6. **Los dos módulos implementan lo mismo por separado.** Duplicar `ScanBudget` en dos sitios
-   incomoda, pero §5 prohíbe que un guardrail dependa de otro y llevarlo a `guardrails-core`
-   significaría una sexta extensión del SPI para dos records de tres líneas que nadie más va a
-   usar. Si un tercer módulo llega a necesitar lo mismo, entonces sí toca subirlo a core — con su
-   spec, como las cinco anteriores.
+6. **~~Los dos módulos implementan lo mismo por separado.~~ Revertida durante la implementación.**
+   La decisión original decía que duplicar `ScanBudget` incomoda pero que llevarlo a
+   `guardrails-core` no compensaba «para dos records de tres líneas que nadie más va a usar», y que
+   con un tercer consumidor tocaría subirlo. El argumento estaba mal planteado: no hace falta un
+   tercer módulo, basta con que los dos que hay **tengan que coincidir**. Recorren el mismo mapa en
+   la misma invocación, así que dos topes distintos truncan el mismo payload en dos puntos
+   distintos — una diferencia invisible para el operador y medible para el atacante. Dos constantes
+   separadas que valen lo mismo son una invariante sin nadie que la sostenga.
+
+   El tipo vive en `core.domain`, especificado en
+   [`guardrails-core-scan-budget-spec.md`](guardrails-core-scan-budget-spec.md). No introduce
+   dependencia entre guardrails: los dos módulos ya dependían de core.
 
 7. **F-11 se documenta, no se sube.** El techo de 64 KB del decodificador Base64 es la misma clase
    de frontera, pero subirlo solo la mueve: siempre habrá un tamaño justo por encima. Cerrarlo de

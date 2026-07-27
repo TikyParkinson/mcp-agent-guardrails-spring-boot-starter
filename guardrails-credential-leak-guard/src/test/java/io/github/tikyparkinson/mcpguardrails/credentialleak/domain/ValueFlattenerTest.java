@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -132,6 +133,23 @@ class ValueFlattenerTest {
     // when it is flattened
     // then the walk finished, which is the normal case and the only one that can allow
     assertTrue(ValueFlattener.flatten(values).complete());
+  }
+
+  @Test
+  void shouldStopMidListWhenTheBudgetRunsOutInsideAnArray() {
+    // given a list longer than the budget allows
+    List<String> items = new ArrayList<>();
+    for (int index = 0; index < 40; index++) {
+      items.add("value " + index);
+    }
+
+    // when it is flattened within a budget of five nodes
+    FlattenedArguments flattened =
+        ValueFlattener.flatten(Map.of("items", items), new ScanBudget(5, 64));
+
+    // then the walk abandons the list rather than finishing it, and says so
+    assertFalse(flattened.complete());
+    assertTrue(flattened.values().size() <= 5);
   }
 
   @Test

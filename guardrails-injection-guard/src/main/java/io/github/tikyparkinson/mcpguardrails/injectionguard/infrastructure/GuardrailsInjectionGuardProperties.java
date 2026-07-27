@@ -15,10 +15,10 @@
  */
 package io.github.tikyparkinson.mcpguardrails.injectionguard.infrastructure;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.BuiltInInjectionRules;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.InjectionRule;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.InjectionSeverity;
-import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.ScanBudget;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;

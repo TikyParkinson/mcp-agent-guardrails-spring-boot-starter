@@ -15,10 +15,10 @@
  */
 package io.github.tikyparkinson.mcpguardrails.credentialleak.infrastructure;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.adapter.in.chain.InputAction;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.adapter.in.chain.OutputAction;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.BuiltInSecretPatterns;
-import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretPattern;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretSeverity;
 import java.util.ArrayList;

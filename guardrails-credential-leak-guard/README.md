@@ -20,7 +20,10 @@ the `spring-boot-starter` integration ships separately.
   rather than an `Allow`. Nothing matching is not the same as nothing being there. The bound is on
   the number of values because that is what costs: a structure nested a thousand levels deep holds
   nine values and scans as fast as one nested eight, while five thousand flat fields is the worst
-  case the default admits, at about 3 ms.
+  case the default admits, at about 3 ms. The limits are a `ScanBudget` from
+  [guardrails-core](../guardrails-core), shared with
+  [guardrails-injection-guard](../guardrails-injection-guard) so both stop reading the same
+  arguments at the same point.
 - **Map keys are scanned as well as map values.** A credential used as a field name is still a
   credential sitting in the arguments. The location says which it was: `arguments.payload.token`
   for a value, `arguments.payload{token}` for a key.

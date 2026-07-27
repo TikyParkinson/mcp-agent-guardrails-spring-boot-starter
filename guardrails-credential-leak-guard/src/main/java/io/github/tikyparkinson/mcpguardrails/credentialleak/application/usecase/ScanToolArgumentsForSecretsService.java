@@ -15,9 +15,9 @@
  */
 package io.github.tikyparkinson.mcpguardrails.credentialleak.application.usecase;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.application.port.in.ScanToolArgumentsForSecretsUseCase;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.application.port.out.SecretPatternSetPort;
-import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretScanResult;
 import io.github.tikyparkinson.mcpguardrails.credentialleak.domain.SecretScanner;
 import java.util.Map;

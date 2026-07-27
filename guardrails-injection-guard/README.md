@@ -35,6 +35,9 @@ No auto-configuration here — the [spring-boot-starter](../spring-boot-starter)
 * **Arguments nobody finished scanning are denied, not allowed.** The walk is bounded — ten
   thousand values and sixty-four levels by default — and running out of budget produces a `Deny`.
   Wrapping a payload in enough layers used to skip the guardrail entirely; now it stops the call.
+  The limits are a `ScanBudget` from [guardrails-core](../guardrails-core), shared with
+  [guardrails-credential-leak-guard](../guardrails-credential-leak-guard) so both stop reading the
+  same arguments at the same point.
 * Detection only — it does not sanitize or rewrite arguments, and it does not inspect tool
   responses.
 

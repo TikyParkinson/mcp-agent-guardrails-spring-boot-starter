@@ -28,6 +28,12 @@ This module has no runtime state and no auto-configuration — the
 * `GuardrailToolDecorator` / `GuardedToolCallHandler`: wrap any MCP `SyncToolSpecification` so
   `Deny` and `Escalate` return an `isError` MCP result without executing the tool, and so the
   result is rewritten on `Redact` or replaced with an error on `Block`.
+* `ScanBudget(maxNodes, maxDepth)`: how much of an argument structure a scan may walk, defaulting
+  to ten thousand nodes and sixty-four levels. It lives here because more than one guardrail walks
+  the same arguments in the same invocation, and two scanners giving up at different points would
+  truncate the same payload in different places — a difference an operator cannot see and an
+  attacker can measure. Bounding node count rather than depth is deliberate: depth is cheap, width
+  is what costs.
 
 ## Configuration
 

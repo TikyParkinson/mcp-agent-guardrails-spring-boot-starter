@@ -15,6 +15,7 @@
  */
 package io.github.tikyparkinson.mcpguardrails.injectionguard.domain;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

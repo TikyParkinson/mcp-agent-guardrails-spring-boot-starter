@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -140,6 +142,39 @@ class ArgumentScannerTest {
     ScanResult result = ArgumentScanner.scan(wide, RULES);
 
     // then the walk stops and says so
+    assertFalse(result.complete());
+  }
+
+  @Test
+  void shouldStopMidListWhenTheBudgetRunsOutInsideAnArray() {
+    // given a list longer than the budget, which is the other shape a payload can take
+    List<String> items = new ArrayList<>();
+    for (int index = 0; index < 40; index++) {
+      items.add("value " + index);
+    }
+
+    // when it is scanned within a budget of five nodes
+    ScanResult result = ArgumentScanner.scan(Map.of("items", items), RULES, new ScanBudget(5, 64));
+
+    // then the walk abandons the list rather than finishing it
+    assertFalse(result.complete());
+  }
+
+  @Test
+  void shouldMissAPayloadHiddenPastTheBudgetWhenItSitsLateInAList() {
+    // given a payload placed after the budget runs out
+    List<String> items = new ArrayList<>();
+    for (int index = 0; index < 20; index++) {
+      items.add("harmless " + index);
+    }
+    items.add("evil payload");
+
+    // when it is scanned within a budget of three nodes
+    ScanResult result = ArgumentScanner.scan(Map.of("items", items), RULES, new ScanBudget(3, 64));
+
+    // then the scan is clean and incomplete at once, which is precisely why an incomplete walk
+    // must deny: nothing matched because nothing was read
+    assertTrue(result.clean());
     assertFalse(result.complete());
   }
 

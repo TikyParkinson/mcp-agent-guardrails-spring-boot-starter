@@ -39,8 +39,9 @@ jobs:
           # maven-gpg-plugin (bestPractices) reads the passphrase from this exact variable
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Runs only after Maven Central publication succeeded. Extracts this version's
-      # section from CHANGELOG.md as the release notes; skips if the release exists.
+      # Runs after the bundle is validated by Maven Central (publication continues
+      # asynchronously via autoPublish). Extracts this version's section from
+      # CHANGELOG.md as the release notes; skips if the release exists.
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

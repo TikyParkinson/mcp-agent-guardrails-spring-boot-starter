@@ -17,14 +17,9 @@ package io.github.tikyparkinson.mcpguardrails.authz.adapter.in.chain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 import io.github.tikyparkinson.mcpguardrails.authz.application.port.in.AuthorizeToolInvocationUseCase;
 import io.github.tikyparkinson.mcpguardrails.authz.domain.PermissionEffect;
 import io.github.tikyparkinson.mcpguardrails.authz.domain.PolicyDecision;
@@ -50,21 +45,18 @@ class AuthzGuardrailTest {
 
   private final AuthorizeToolInvocationUseCase authorize =
       mock(AuthorizeToolInvocationUseCase.class);
-  private final RecordAuditEventUseCase auditBus = mock(RecordAuditEventUseCase.class);
-  private final AuthzGuardrail guardrail = new AuthzGuardrail(authorize, auditBus);
+  private final AuthzGuardrail guardrail = new AuthzGuardrail(authorize);
 
   @Test
-  void shouldAllowAndRecordDecisionWhenPolicyAllows() {
-    // given
+  void shouldCarryTheMatchingRuleWhenPolicyAllows() {
+    // given a policy that permits because of a specific rule
     when(authorize.authorize("agent-1", "search"))
         .thenReturn(new PolicyDecision(PermissionEffect.ALLOW, "rule[1]"));
 
-    // when / then
-    assertEquals(new Allow(), guardrail.evaluate(CONTEXT));
-    verify(auditBus)
-        .publish(
-            new NewAuditEvent(
-                "agent-1", "search", "authz", AuditEventType.DECISION_ALLOW, "rule[1]"));
+    // when the guardrail evaluates
+    // then the rule travels in the decision. Without it an audited Allow would say that the call
+    // was permitted but not by which rule, which is close to useless to whoever reviews the trail
+    assertEquals(new Allow("rule[1]"), guardrail.evaluate(CONTEXT));
   }
 
   @Test
@@ -77,10 +69,6 @@ class AuthzGuardrailTest {
     assertEquals(
         new Deny("agent 'agent-1' is not allowed to call tool 'search' (rule[0])"),
         guardrail.evaluate(CONTEXT));
-    verify(auditBus)
-        .publish(
-            new NewAuditEvent(
-                "agent-1", "search", "authz", AuditEventType.DECISION_DENY, "rule[0]"));
   }
 
   @Test
@@ -93,21 +81,19 @@ class AuthzGuardrailTest {
     assertEquals(
         new Escalate("agent 'agent-1' requires approval for tool 'search' (default)"),
         guardrail.evaluate(CONTEXT));
-    verify(auditBus)
-        .publish(
-            new NewAuditEvent(
-                "agent-1", "search", "authz", AuditEventType.DECISION_ESCALATE, "default"));
   }
 
   @Test
-  void shouldPropagateFailureWhenAuditBusThrows() {
-    // given: fail-closed — an unauditable decision must not pass silently
+  void shouldNotDependOnTheAuditBusWhenEvaluating() {
+    // given a guardrail built with its only collaborator, the policy
     when(authorize.authorize("agent-1", "search"))
         .thenReturn(new PolicyDecision(PermissionEffect.ALLOW, "default"));
-    when(auditBus.publish(any())).thenThrow(new IllegalStateException("audit store down"));
 
-    // when / then
-    assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));
+    // when it evaluates
+    // then it decides on its own. ARCHITECTURE.md 5 forbids depending on another guardrail
+    // module, so this guardrail no longer publishes anything and cannot fail because of a broken
+    // audit store — the wiring layer records the whole chain instead
+    assertEquals(new Allow("default"), guardrail.evaluate(CONTEXT));
   }
 
   @Test
@@ -118,9 +104,8 @@ class AuthzGuardrailTest {
   }
 
   @Test
-  void shouldRejectNullCollaboratorsWhenConstructed() {
+  void shouldRejectNullCollaboratorWhenConstructed() {
     // given / when / then
-    assertThrows(NullPointerException.class, () -> new AuthzGuardrail(null, auditBus));
-    assertThrows(NullPointerException.class, () -> new AuthzGuardrail(authorize, null));
+    assertThrows(NullPointerException.class, () -> new AuthzGuardrail(null));
   }
 }

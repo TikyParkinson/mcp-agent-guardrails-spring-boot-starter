@@ -47,12 +47,18 @@ public final class JdbcRateLimitStoreAdapter implements RateLimitStorePort {
     Objects.requireNonNull(agentId, "agentId");
     Objects.requireNonNull(toolName, "toolName");
     Objects.requireNonNull(windowStart, "windowStart");
-    return jdbcClient
-        .sql(UPSERT_SQL)
-        .param("agentId", agentId)
-        .param("toolName", toolName)
-        .param("windowStart", Timestamp.from(windowStart))
-        .query(Long.class)
-        .single();
+    Long count =
+        jdbcClient
+            .sql(UPSERT_SQL)
+            .param("agentId", agentId)
+            .param("toolName", toolName)
+            .param("windowStart", Timestamp.from(windowStart))
+            .query(Long.class)
+            .single();
+    if (count == null) {
+      throw new IllegalStateException(
+          "rate limit upsert returned no counter for tool '" + toolName + "'");
+    }
+    return count;
   }
 }

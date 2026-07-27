@@ -7,7 +7,7 @@
   <parent>
     <groupId>io.github.tikyparkinson</groupId>
     <artifactId>mcp-agent-guardrails-spring-boot-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>mcp-guardrails-spring-boot-starter</artifactId>
@@ -43,6 +43,36 @@
     <dependency>
       <groupId>io.github.tikyparkinson</groupId>
       <artifactId>guardrails-ratelimit</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-tool-integrity</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-credential-leak-guard</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-egress-control</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-anomaly-detector</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-approval-gate</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-trifecta-correlator</artifactId>
       <version>${project.version}</version>
     </dependency>
     <!-- Spec §7: @AutoConfiguration and @ConditionalOn* — the module's raison d'être -->

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.tikyparkinson</groupId>
+    <artifactId>mcp-agent-guardrails-spring-boot-starter</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>guardrails-egress-control</artifactId>
+  <name>Guardrails Egress Control</name>
+  <description>Allowlist of outbound destinations for tools with network capability.</description>
+
+  <dependencies>
+    <!-- Spec §7: Guardrail SPI, ToolInvocationContext and the decision types the adapter-in emits -->
+    <dependency>
+      <groupId>io.github.tikyparkinson</groupId>
+      <artifactId>guardrails-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- Spec §7: only @ConfigurationProperties in infrastructure -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

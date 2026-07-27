@@ -15,9 +15,6 @@
  */
 package io.github.tikyparkinson.mcpguardrails.injectionguard.adapter.in.chain;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 import io.github.tikyparkinson.mcpguardrails.core.application.port.out.Guardrail;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
@@ -31,22 +28,22 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * Injection guardrail: scans tool arguments against the active detection rules. Clean scans pass
- * silently ({@code TOOL_INVOKED} is already recorded by the audit guardrail); detections are
- * recorded on the audit bus with {@code ruleId@path} references — never the argument content itself
- * (PII rule). MALICIOUS denies, SUSPICIOUS escalates.
+ * Injection guardrail: scans tool arguments against the active detection rules. MALICIOUS denies,
+ * SUSPICIOUS escalates.
+ *
+ * <p>It does not publish to the audit bus — ARCHITECTURE.md §5 forbids depending on another
+ * guardrail module, and auditing happens once for the whole chain in {@code spring-boot-starter}.
+ * The decision reason carries {@code ruleId@path} references and never the argument content itself
+ * (PII rule), so what reaches the audit log stays free of the text that triggered the detection.
  */
 public final class InjectionGuardrail implements Guardrail {
 
   public static final String GUARDRAIL_NAME = "injection-guard";
 
   private final ScanToolArgumentsUseCase scanArguments;
-  private final RecordAuditEventUseCase auditBus;
 
-  public InjectionGuardrail(
-      ScanToolArgumentsUseCase scanArguments, RecordAuditEventUseCase auditBus) {
+  public InjectionGuardrail(ScanToolArgumentsUseCase scanArguments) {
     this.scanArguments = Objects.requireNonNull(scanArguments, "scanArguments");
-    this.auditBus = Objects.requireNonNull(auditBus, "auditBus");
   }
 
   @Override
@@ -63,27 +60,18 @@ public final class InjectionGuardrail implements Guardrail {
   public GuardrailDecision evaluate(ToolInvocationContext context) {
     ScanResult result = scanArguments.scan(context.arguments());
     if (result.clean()) {
-      return new Allow();
+      // A walk that ran out of budget did not clear the arguments, it stopped looking at them.
+      return result.complete()
+          ? new Allow()
+          : new Deny("tool arguments too large to scan for injection");
     }
     InjectionSeverity severity = result.highestSeverity().orElseThrow();
     String detail = describeFindings(result);
-    recordDetection(context, severity, detail);
     return switch (severity) {
       case MALICIOUS -> new Deny("malicious content detected in tool arguments (" + detail + ")");
       case SUSPICIOUS ->
           new Escalate("suspicious content detected in tool arguments (" + detail + ")");
     };
-  }
-
-  private void recordDetection(
-      ToolInvocationContext context, InjectionSeverity severity, String detail) {
-    AuditEventType type =
-        severity == InjectionSeverity.MALICIOUS
-            ? AuditEventType.DECISION_DENY
-            : AuditEventType.DECISION_ESCALATE;
-    auditBus.publish(
-        new NewAuditEvent(
-            context.agentId().value(), context.toolName().value(), GUARDRAIL_NAME, type, detail));
   }
 
   private static String describeFindings(ScanResult result) {

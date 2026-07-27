@@ -16,36 +16,67 @@
 package io.github.tikyparkinson.mcpguardrails.core.adapter.in.mcp;
 
 import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolInvocationUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.in.EvaluateToolResultUseCase;
+import io.github.tikyparkinson.mcpguardrails.core.application.port.out.EscalationResolver;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ApprovedExecution;
+import io.github.tikyparkinson.mcpguardrails.core.domain.Block;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ChainVerdict;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Escalate;
+import io.github.tikyparkinson.mcpguardrails.core.domain.EscalationOutcome;
+import io.github.tikyparkinson.mcpguardrails.core.domain.PassThrough;
+import io.github.tikyparkinson.mcpguardrails.core.domain.Redact;
+import io.github.tikyparkinson.mcpguardrails.core.domain.RejectedExecution;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ResultVerdict;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ToolInvocationContext;
 import io.github.tikyparkinson.mcpguardrails.core.domain.ToolName;
+import io.github.tikyparkinson.mcpguardrails.core.domain.ToolResultContext;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 /**
  * Inbound MCP adapter: decorates a tool call handler so that every invocation is evaluated by the
- * guardrail chain before the real tool runs.
+ * guardrail chain before the real tool runs, and its result by the outbound chain before it reaches
+ * the agent.
  *
- * <p>{@code Allow} delegates to the original handler; {@code Deny} and {@code Escalate} return an
- * error {@link McpSchema.CallToolResult} without executing the tool ({@code Escalate} is handled
- * conservatively until a human-in-the-loop mechanism exists).
+ * <p>{@code Allow} delegates to the original handler and {@code Deny} returns an error {@link
+ * McpSchema.CallToolResult} without executing the tool. {@code Escalate} is handed to the {@link
+ * EscalationResolver} when one is registered — which is how {@code guardrails-approval-gate} holds
+ * the invocation for a human — and otherwise returns an error, the behaviour of this handler before
+ * that SPI existed. On the way back, {@code PassThrough} returns the result untouched, {@code
+ * Redact} rebuilds it with sanitized text, and {@code Block} replaces it with an error.
  */
 public final class GuardedToolCallHandler
     implements BiFunction<
         McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> {
 
+  /**
+   * Key under which {@link ToolInvocationContext#metadata()} carries the MCP transport session,
+   * when the transport provides one. Public because it is the contract: a consumer writing the
+   * literal itself would turn a typo into a silent miss.
+   */
+  public static final String SESSION_ID = "mcp.sessionId";
+
+  private static final EvaluateToolResultUseCase NO_OUTBOUND_GUARDRAILS =
+      context -> new ResultVerdict(new PassThrough(), List.of());
+
   private final BiFunction<
           McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult>
       delegate;
   private final EvaluateToolInvocationUseCase useCase;
+  private final EvaluateToolResultUseCase resultUseCase;
   private final AgentIdResolver agentIdResolver;
   private final Clock clock;
+  private final EscalationResolver escalationResolver;
 
   public GuardedToolCallHandler(
       BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult>
@@ -53,21 +84,99 @@ public final class GuardedToolCallHandler
       EvaluateToolInvocationUseCase useCase,
       AgentIdResolver agentIdResolver,
       Clock clock) {
+    this(delegate, useCase, NO_OUTBOUND_GUARDRAILS, agentIdResolver, clock);
+  }
+
+  public GuardedToolCallHandler(
+      BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult>
+          delegate,
+      EvaluateToolInvocationUseCase useCase,
+      EvaluateToolResultUseCase resultUseCase,
+      AgentIdResolver agentIdResolver,
+      Clock clock) {
+    this(delegate, useCase, resultUseCase, agentIdResolver, clock, null);
+  }
+
+  /**
+   * @param escalationResolver decides what an {@code Escalate} verdict actually does; {@code null}
+   *     keeps the historical behaviour of returning an error
+   */
+  public GuardedToolCallHandler(
+      BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult>
+          delegate,
+      EvaluateToolInvocationUseCase useCase,
+      EvaluateToolResultUseCase resultUseCase,
+      AgentIdResolver agentIdResolver,
+      Clock clock,
+      EscalationResolver escalationResolver) {
     this.delegate = Objects.requireNonNull(delegate, "delegate");
     this.useCase = Objects.requireNonNull(useCase, "useCase");
+    this.resultUseCase = Objects.requireNonNull(resultUseCase, "resultUseCase");
     this.agentIdResolver = Objects.requireNonNull(agentIdResolver, "agentIdResolver");
     this.clock = Objects.requireNonNull(clock, "clock");
+    this.escalationResolver = escalationResolver;
   }
 
   @Override
   public McpSchema.CallToolResult apply(
       McpSyncServerExchange exchange, McpSchema.CallToolRequest request) {
     ToolInvocationContext context = toContext(exchange, request);
-    return switch (useCase.evaluate(context).finalDecision()) {
-      case Allow _ -> delegate.apply(exchange, request);
+    ChainVerdict verdict = useCase.evaluate(context);
+    return switch (verdict.finalDecision()) {
+      case Allow _ -> guardedDelegate(exchange, request, context);
       case Deny(String reason) -> errorResult("Tool call denied by guardrails: " + reason);
       case Escalate(String reason) ->
-          errorResult("Tool call requires approval (escalated by guardrails): " + reason);
+          resolveEscalation(exchange, request, context, verdict, reason);
+    };
+  }
+
+  /**
+   * Asks the resolver what to do with an escalated invocation.
+   *
+   * <p>An approved execution goes through {@link #guardedDelegate}, not straight to the delegate:
+   * approving that a tool runs is not approving that its output is seen raw, so the outbound chain
+   * still applies.
+   */
+  private McpSchema.CallToolResult resolveEscalation(
+      McpSyncServerExchange exchange,
+      McpSchema.CallToolRequest request,
+      ToolInvocationContext context,
+      ChainVerdict verdict,
+      String reason) {
+    if (escalationResolver == null) {
+      return errorResult("Tool call requires approval (escalated by guardrails): " + reason);
+    }
+    return switch (safeResolve(context, verdict)) {
+      case ApprovedExecution _ -> guardedDelegate(exchange, request, context);
+      case RejectedExecution(String why) -> errorResult("Tool call not approved: " + why);
+    };
+  }
+
+  /**
+   * Never lets a failing resolver turn into permission: an approval channel that is down or
+   * misbehaving must close the door, not open it. Same rule as {@code GuardrailChain.safeEvaluate}.
+   */
+  private EscalationOutcome safeResolve(ToolInvocationContext context, ChainVerdict verdict) {
+    try {
+      EscalationOutcome outcome = escalationResolver.resolve(context, verdict);
+      return outcome == null
+          ? new RejectedExecution("approval resolver returned no outcome")
+          : outcome;
+    } catch (RuntimeException e) {
+      return new RejectedExecution("approval resolver failed: " + e.getClass().getSimpleName());
+    }
+  }
+
+  private McpSchema.CallToolResult guardedDelegate(
+      McpSyncServerExchange exchange,
+      McpSchema.CallToolRequest request,
+      ToolInvocationContext invocation) {
+    McpSchema.CallToolResult result = delegate.apply(exchange, request);
+    ToolResultContext resultContext = toResultContext(result, invocation);
+    return switch (resultUseCase.evaluate(resultContext).finalDecision()) {
+      case PassThrough _ -> result;
+      case Redact(List<String> sanitized, _) -> redacted(result, sanitized);
+      case Block(String reason) -> errorResult("Tool result blocked by guardrails: " + reason);
     };
   }
 
@@ -79,7 +188,108 @@ public final class GuardedToolCallHandler
         new ToolName(request.name()),
         clock.instant(),
         arguments,
-        Map.of());
+        metadataOf(exchange));
+  }
+
+  /**
+   * Carries the MCP transport session, when there is one, so guardrails that reason across
+   * invocations can tell one connection from another. The agent identifier cannot do that job: it
+   * is the client product's name, shared by everyone using it.
+   *
+   * <p>An absent session is a map without the key rather than a key with an empty value, so a
+   * consumer that finds {@link #SESSION_ID} can trust there is a session. A transport that throws
+   * is treated as one that has none: it is implemented outside this project, and no guardrail
+   * should fail an invocation over an optional piece of context.
+   */
+  private static Map<String, Object> metadataOf(McpSyncServerExchange exchange) {
+    if (exchange == null) {
+      return Map.of();
+    }
+    try {
+      String sessionId = exchange.sessionId();
+      return sessionId == null || sessionId.isBlank() ? Map.of() : Map.of(SESSION_ID, sessionId);
+    } catch (RuntimeException _) {
+      return Map.of();
+    }
+  }
+
+  private static ToolResultContext toResultContext(
+      McpSchema.CallToolResult result, ToolInvocationContext invocation) {
+    return new ToolResultContext(
+        invocation.agentId(),
+        invocation.toolName(),
+        invocation.occurredAt(),
+        textContents(result),
+        structuredContent(result),
+        Boolean.TRUE.equals(result.isError()));
+  }
+
+  /**
+   * Every redactable text of the result, in order: the text of each {@code TextContent} and of each
+   * {@code EmbeddedResource} carrying textual contents. A tool returning a file as an embedded
+   * resource is a first-class leak channel, so it must be inspectable too.
+   */
+  private static List<String> textContents(McpSchema.CallToolResult result) {
+    return result.content().stream()
+        .map(GuardedToolCallHandler::redactableText)
+        .flatMap(Optional::stream)
+        .toList();
+  }
+
+  private static Optional<String> redactableText(McpSchema.Content content) {
+    return switch (content) {
+      case McpSchema.TextContent text -> Optional.of(text.text());
+      case McpSchema.EmbeddedResource embedded ->
+          embedded.resource() instanceof McpSchema.TextResourceContents textual
+              ? Optional.of(textual.text())
+              : Optional.empty();
+      default -> Optional.empty();
+    };
+  }
+
+  /** Structured content is exposed read-only so guardrails can scan it; it is never rewritten. */
+  private static Map<String, Object> structuredContent(McpSchema.CallToolResult result) {
+    if (!(result.structuredContent() instanceof Map<?, ?> structured)) {
+      return Map.of();
+    }
+    Map<String, Object> scannable = new LinkedHashMap<>();
+    structured.forEach(
+        (key, value) -> {
+          if (value != null) {
+            scannable.put(String.valueOf(key), value);
+          }
+        });
+    return scannable;
+  }
+
+  private static McpSchema.CallToolResult redacted(
+      McpSchema.CallToolResult result, List<String> sanitized) {
+    List<McpSchema.Content> originals = result.content();
+    List<McpSchema.Content> contents = new ArrayList<>(originals.size());
+    int index = 0;
+    for (McpSchema.Content content : originals) {
+      if (redactableText(content).isPresent()) {
+        contents.add(withText(content, sanitized.get(index++)));
+      } else {
+        contents.add(content);
+      }
+    }
+    return new McpSchema.CallToolResult(
+        contents, result.isError(), result.structuredContent(), result.meta());
+  }
+
+  /** Rebuilds a redactable content with new text, preserving everything else it carries. */
+  private static McpSchema.Content withText(McpSchema.Content content, String text) {
+    if (content instanceof McpSchema.TextContent original) {
+      return new McpSchema.TextContent(original.annotations(), text, original.meta());
+    }
+    McpSchema.EmbeddedResource embedded = (McpSchema.EmbeddedResource) content;
+    McpSchema.TextResourceContents original = (McpSchema.TextResourceContents) embedded.resource();
+    return new McpSchema.EmbeddedResource(
+        embedded.annotations(),
+        new McpSchema.TextResourceContents(
+            original.uri(), original.mimeType(), text, original.meta()),
+        embedded.meta());
   }
 
   private static McpSchema.CallToolResult errorResult(String message) {

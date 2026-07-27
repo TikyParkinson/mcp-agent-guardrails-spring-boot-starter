@@ -17,15 +17,9 @@ package io.github.tikyparkinson.mcpguardrails.ratelimit.adapter.in.chain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.github.tikyparkinson.mcpguardrails.audit.application.port.in.RecordAuditEventUseCase;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.AuditEventType;
-import io.github.tikyparkinson.mcpguardrails.audit.domain.NewAuditEvent;
 import io.github.tikyparkinson.mcpguardrails.core.domain.AgentId;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Allow;
 import io.github.tikyparkinson.mcpguardrails.core.domain.Deny;
@@ -48,21 +42,19 @@ class RateLimitGuardrailTest {
           new AgentId("agent-1"), new ToolName("search"), NOW, Map.of(), Map.of());
 
   private final CheckRateLimitUseCase checkRateLimit = mock(CheckRateLimitUseCase.class);
-  private final RecordAuditEventUseCase auditBus = mock(RecordAuditEventUseCase.class);
-  private final RateLimitGuardrail guardrail = new RateLimitGuardrail(checkRateLimit, auditBus);
+  private final RateLimitGuardrail guardrail = new RateLimitGuardrail(checkRateLimit);
 
   @Test
-  void shouldAllowSilentlyWhenWithinLimit() {
+  void shouldAllowWhenWithinLimit() {
     // given
     when(checkRateLimit.check("agent-1", "search", NOW)).thenReturn(new RateLimitStatus(5, POLICY));
 
     // when / then: allowed pass is silent — no audit noise
     assertEquals(new Allow(), guardrail.evaluate(CONTEXT));
-    verifyNoInteractions(auditBus);
   }
 
   @Test
-  void shouldDenyWithDetailsWhenLimitExceeded() {
+  void shouldDenyWithCountsWhenLimitExceeded() {
     // given
     when(checkRateLimit.check("agent-1", "search", NOW)).thenReturn(new RateLimitStatus(6, POLICY));
 
@@ -70,24 +62,17 @@ class RateLimitGuardrailTest {
     assertEquals(
         new Deny("rate limit exceeded for agent 'agent-1' on tool 'search' (6/5 in PT1M)"),
         guardrail.evaluate(CONTEXT));
-    verify(auditBus)
-        .publish(
-            new NewAuditEvent(
-                "agent-1",
-                "search",
-                "ratelimit",
-                AuditEventType.DECISION_DENY,
-                "count=6 limit=5 window=PT1M"));
   }
 
   @Test
-  void shouldPropagateFailureWhenAuditBusThrows() {
-    // given: an unauditable denial must not pass silently (fail-closed in core)
-    when(checkRateLimit.check("agent-1", "search", NOW)).thenReturn(new RateLimitStatus(6, POLICY));
-    when(auditBus.publish(any())).thenThrow(new IllegalStateException("audit down"));
+  void shouldNotDependOnTheAuditBusWhenEvaluating() {
+    // given an invocation within the limit
+    when(checkRateLimit.check("agent-1", "search", NOW)).thenReturn(new RateLimitStatus(1, POLICY));
 
-    // when / then
-    assertThrows(IllegalStateException.class, () -> guardrail.evaluate(CONTEXT));
+    // when the guardrail evaluates
+    // then it decides on its own. ARCHITECTURE.md 5 forbids depending on another guardrail
+    // module, so a broken audit store can no longer turn an allowed call into an error
+    assertEquals(new Allow(), guardrail.evaluate(CONTEXT));
   }
 
   @Test
@@ -98,9 +83,8 @@ class RateLimitGuardrailTest {
   }
 
   @Test
-  void shouldRejectNullCollaboratorsWhenConstructed() {
+  void shouldRejectNullCollaboratorWhenConstructed() {
     // given / when / then
-    assertThrows(NullPointerException.class, () -> new RateLimitGuardrail(null, auditBus));
-    assertThrows(NullPointerException.class, () -> new RateLimitGuardrail(checkRateLimit, null));
+    assertThrows(NullPointerException.class, () -> new RateLimitGuardrail(null));
   }
 }

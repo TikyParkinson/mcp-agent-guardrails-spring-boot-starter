@@ -17,8 +17,31 @@ package io.github.tikyparkinson.mcpguardrails.audit.domain;
 
 /** Closed set of audit event types. */
 public enum AuditEventType {
+
+  /** A tool call reached the chain. Emitted before any guardrail has decided. */
   TOOL_INVOKED,
+
+  /** A guardrail permitted the invocation. */
   DECISION_ALLOW,
+
+  /** A guardrail blocked the invocation. */
   DECISION_DENY,
-  DECISION_ESCALATE
+
+  /** A guardrail asked for a human decision. */
+  DECISION_ESCALATE,
+
+  /** The outbound chain returned the tool result untouched. */
+  RESULT_PASS_THROUGH,
+
+  /** The outbound chain removed something from the tool result before returning it. */
+  RESULT_REDACTED,
+
+  /** The outbound chain stopped the tool result from reaching the agent. */
+  RESULT_BLOCKED,
+
+  /**
+   * An escalation ended. The detail says how: approved or rejected by a person, or expired because
+   * nobody answered — a denial nobody decided, which is not the same thing.
+   */
+  APPROVAL_RESOLVED
 }

@@ -7,7 +7,7 @@
   <parent>
     <groupId>io.github.tikyparkinson</groupId>
     <artifactId>mcp-agent-guardrails-spring-boot-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>guardrails-authz</artifactId>
@@ -22,11 +22,6 @@
       <version>${project.version}</version>
     </dependency>
     <!-- Spec §7: audit bus used by the adapter-in to record decisions -->
-    <dependency>
-      <groupId>io.github.tikyparkinson</groupId>
-      <artifactId>guardrails-audit</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <!-- Spec §7: only @ConfigurationProperties in infrastructure -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

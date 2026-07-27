@@ -21,13 +21,18 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Outcome of scanning one invocation's arguments against the active rules. */
-public record ScanResult(List<Finding> findings) {
+public record ScanResult(List<Finding> findings, boolean complete) {
 
   public ScanResult {
     findings = List.copyOf(Objects.requireNonNull(findings, "findings"));
   }
 
-  /** True when no rule fired. */
+  /** A result from a walk that finished. */
+  public ScanResult(List<Finding> findings) {
+    this(findings, true);
+  }
+
+  /** True when no rule fired. Says nothing about whether everything was looked at. */
   public boolean clean() {
     return findings.isEmpty();
   }

@@ -5,14 +5,15 @@ on:
     branches: ["**"]
   pull_request:
 
-permissions:
-  contents: read
-  pull-requests: write # coverage comment on PRs
+permissions: {}
 
 jobs:
   verify:
     name: Build & Verify (JDK 25)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # coverage comment on PRs
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
@@ -37,8 +38,14 @@ jobs:
 
       # ubuntu-latest ships Docker, required by the Testcontainers suites
       # (audit & ratelimit JDBC adapters run against a real PostgreSQL).
+      #
+      # -Prelease so the source and javadoc jars are built here rather than for
+      # the first time on the snapshot deploy, which runs after the merge: a
+      # broken @link only failed once it was already on develop.
+      # GPG is skipped because signing needs the release key, which this job
+      # has no business holding.
       - name: Verify
-        run: mvn -B -ntp verify
+        run: mvn -B -ntp -Prelease verify -Dgpg.skip=true
 
       # Skipped automatically on forks/Dependabot where the secret is unavailable.
       - name: SonarCloud analysis

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `injection-guard`: repair a javadoc reference to a deleted constant
+
+### Changed
+- `tool-integrity`: extract duplicated literals and simplify assertThrows lambdas (Sonar S1192, S5778) (#5)
+
+### Added
+- **BREAKING** `guardrails`: close the evasion and audit gaps found in 0.2.0 (#13)
+- `starter`: wire the remaining seven guardrail modules (#12)
+- `trifecta-correlator`: escalate a session where the three legs meet (#11)
+- `approval-gate`: hold escalated invocations until a person decides (#10)
+- `anomaly-detector`: add anomaly detection guardrail for looping or compromised agents (#9)
+- `egress-control`: add outbound destination allowlist guardrail (#8)
+- `credential-leak`: add credential leak guard and the core outbound SPI it needs (#7)
+- `tool-integrity`: add guardrails-tool-integrity module with TOFU baseline verification (#4)
+
 ## [0.1.0] - 2026-07-24
 
 ### Added

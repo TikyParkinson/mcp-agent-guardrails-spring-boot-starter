@@ -8,14 +8,15 @@ on:
   schedule:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC
 
-permissions:
-  contents: read
-  security-events: write
+permissions: {}
 
 jobs:
   analyze:
     name: Analyze Java
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload CodeQL results
     steps:
       - name: Checkout
         uses: actions/checkout@v4

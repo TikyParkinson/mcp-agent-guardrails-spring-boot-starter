@@ -15,6 +15,7 @@
  */
 package io.github.tikyparkinson.mcpguardrails.injectionguard.application.usecase;
 
+import io.github.tikyparkinson.mcpguardrails.core.domain.ScanBudget;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.application.port.in.ScanToolArgumentsUseCase;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.application.port.out.InjectionRuleSetPort;
 import io.github.tikyparkinson.mcpguardrails.injectionguard.domain.ArgumentScanner;
@@ -26,14 +27,21 @@ import java.util.Objects;
 public final class ScanToolArgumentsService implements ScanToolArgumentsUseCase {
 
   private final InjectionRuleSetPort ruleSetPort;
+  private final ScanBudget budget;
 
+  /** Scans within the default budget. */
   public ScanToolArgumentsService(InjectionRuleSetPort ruleSetPort) {
+    this(ruleSetPort, ScanBudget.defaults());
+  }
+
+  public ScanToolArgumentsService(InjectionRuleSetPort ruleSetPort, ScanBudget budget) {
     this.ruleSetPort = Objects.requireNonNull(ruleSetPort, "ruleSetPort");
+    this.budget = Objects.requireNonNull(budget, "budget");
   }
 
   @Override
   public ScanResult scan(Map<String, Object> arguments) {
     Objects.requireNonNull(arguments, "arguments");
-    return ArgumentScanner.scan(arguments, ruleSetPort.activeRules());
+    return ArgumentScanner.scan(arguments, ruleSetPort.activeRules(), budget);
   }
 }

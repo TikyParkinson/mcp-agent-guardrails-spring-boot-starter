@@ -1,0 +1,74 @@
+name: Snapshot
+
+# Publishes the current -SNAPSHOT version to Maven Central Snapshots
+# (https://central.sonatype.com/repository/maven-snapshots/) on every push
+# to develop, so integrators can test unreleased changes.
+
+on:
+  push:
+    branches: [develop]
+
+permissions: {}
+
+# Never run two snapshot deploys at once; newer pushes supersede queued ones.
+concurrency:
+  group: snapshot-deploy
+  cancel-in-progress: true
+
+jobs:
+  publish-snapshot:
+    name: Publish snapshot to Maven Central
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: Ensure version is a SNAPSHOT
+        run: |
+          VERSION=$(mvn -B -ntp help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "Project version: $VERSION"
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "::error::Version '$VERSION' is not a SNAPSHOT; refusing to deploy from develop."
+            exit 1
+          fi
+
+      - name: Verify and publish snapshot
+        run: mvn -B -ntp -Prelease deploy
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          # maven-gpg-plugin (bestPractices) reads the passphrase from this exact variable
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Summary
+        run: |
+          VERSION=$(mvn -B -ntp help:evaluate -Dexpression=project.version -q -DforceStdout)
+          {
+            echo "### Snapshot published: \`$VERSION\`"
+            echo ""
+            echo "Consume it by adding the snapshot repository:"
+            echo '```xml'
+            echo "<repositories>"
+            echo "  <repository>"
+            echo "    <id>central-snapshots</id>"
+            echo "    <url>https://central.sonatype.com/repository/maven-snapshots/</url>"
+            echo "    <snapshots><enabled>true</enabled></snapshots>"
+            echo "    <releases><enabled>false</enabled></releases>"
+            echo "  </repository>"
+            echo "</repositories>"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
